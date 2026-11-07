@@ -1,0 +1,15 @@
+# Only the product goes public. Notes, films, research screenshots and key setup scripts stay local.
+/*
+!/.gitignore
+!/README.md
+!/TASTE.md
+!/seldon.mjs
+!/seldon.ps1
+!/app
+
+/app/.impeccable/
+/app/.vercel/
+/app/.next/
+/app/node_modules/
+/app/.env*
+/app/*.tsbuildinfo

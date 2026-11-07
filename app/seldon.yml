@@ -1,0 +1,26 @@
+version: 1
+name: unslop
+run:
+  url: https://dslop.vercel.app
+  credentials: none
+testCases:
+  - name: A pasted site gets its AI tells named
+    id: tells-for-a-pasted-site
+    area: core/read
+    steps:
+      - go to /
+      - click "No site handy? Try a typical AI-made one"
+      - wait up to two minutes for the reading to finish
+    criteria: the page shows the site name Relay, a slop percentage, and a list of what makes it look AI-made that includes the purple gradient
+  - name: A redesign is built live and published, then you can cancel Lovable
+    id: build-and-publish
+    area: core/build
+    steps:
+      - go to /
+      - click "No site handy? Try a typical AI-made one"
+      - wait up to two minutes for the reading to finish
+      - click "See three directions"
+      - click the first of the three direction cards
+      - wait up to five minutes until the Publish button appears
+      - click Publish
+    criteria: a live link to the published site appears together with a box that says "Now cancel Lovable"

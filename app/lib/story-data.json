@@ -1,0 +1,141 @@
+{
+ "directions": [
+  {
+   "name": "Live Wire",
+   "headline": "Every agent call. Routed, retried, traced.",
+   "subline": "Relay sits between your agents and their models, retries what fails, and logs every hop.",
+   "cta": "Trace your first call",
+   "palette": {
+    "ground": "#0b0b0c",
+    "surface": "#161618",
+    "ink": "#f5f5f5",
+    "accent": "#3ee8a5",
+    "accent2": "#ff5a3c"
+   },
+   "fonts": {
+    "display": "Geist",
+    "body": "Geist Mono"
+   },
+   "dark": true,
+   "world": "Near-black ground with a canvas field of nodes where pulses travel between agents and models, some failing red then retrying green."
+  },
+  {
+   "name": "Signal Tower",
+   "headline": "Your agents talk. Relay carries it.",
+   "subline": "Edge routing, automatic retries and a full trace for every call, from one agent to millions.",
+   "cta": "Start free",
+   "palette": {
+    "ground": "#f3ece0",
+    "surface": "#ffffff",
+    "ink": "#1d1b22",
+    "accent": "#e2683c",
+    "accent2": "#2f4a6b"
+   },
+   "fonts": {
+    "display": "IBM Plex Serif",
+    "body": "IBM Plex Sans"
+   },
+   "dark": false,
+   "world": "Painted dusk ridge with relay towers passing light from peak to peak across valleys."
+  },
+  {
+   "name": "Relay Console",
+   "headline": "Open the trace. See what your agent did.",
+   "subline": "Every call routed, every failure retried, every step logged in order.",
+   "cta": "Open the console",
+   "palette": {
+    "ground": "#e9e4d8",
+    "surface": "#fbfaf6",
+    "ink": "#1a1a1a",
+    "accent": "#1f6feb",
+    "accent2": "#2fbf71"
+   },
+   "fonts": {
+    "display": "Space Grotesk",
+    "body": "JetBrains Mono"
+   },
+   "dark": false,
+   "world": "A cream retro desktop with a menu bar, a dock and draggable windows: Router, Retries, Traces, Config."
+  }
+ ],
+ "tells": [
+  {
+   "label": "Purple pink gradient",
+   "severity": "loud"
+  },
+  {
+   "label": "Filler verbs",
+   "severity": "loud"
+  },
+  {
+   "label": "Three emoji cards",
+   "severity": "loud"
+  },
+  {
+   "label": "Eyebrow labels",
+   "severity": "loud"
+  },
+  {
+   "label": "Generic button pair",
+   "severity": "loud"
+  },
+  {
+   "label": "Glassmorphism cards",
+   "severity": "loud"
+  },
+  {
+   "label": "Em dashes",
+   "severity": "quiet"
+  },
+  {
+   "label": "Inter everywhere",
+   "severity": "quiet"
+  },
+  {
+   "label": "No product shown",
+   "severity": "quiet"
+  },
+  {
+   "label": "Vague social proof",
+   "severity": "quiet"
+  }
+ ],
+ "score": 94,
+ "gallery": [
+  {
+   "name": "Relay",
+   "look": "Live Wire",
+   "slug": "relay-livewire",
+   "url": "https://unslop-gold.vercel.app/s/relay-livewire-4ylsm",
+   "img": "/story/relay-livewire.jpg"
+  },
+  {
+   "name": "Relay",
+   "look": "Signal Tower",
+   "slug": "relay-signal-tower",
+   "url": "https://unslop-gold.vercel.app/s/relay-signal-tower-vq5g5",
+   "img": "/story/relay-switchyard.jpg"
+  },
+  {
+   "name": "Relay",
+   "look": "Relay Console",
+   "slug": "relay-console",
+   "url": "https://unslop-gold.vercel.app/s/relay-console-rhjbs",
+   "img": "/story/relay-console.jpg"
+  },
+  {
+   "name": "Taqueria at 24th and Mission",
+   "look": "Trompo Stand",
+   "slug": "taqueria-trompo",
+   "url": "https://unslop-gold.vercel.app/s/taqueria-trompo-5vlu0",
+   "img": "/story/taqueria-trompo.jpg"
+  },
+  {
+   "name": "Taqueria at 24th and Mission",
+   "look": "Pastor Poster",
+   "slug": "taqueria-poster",
+   "url": "https://unslop-gold.vercel.app/s/taqueria-poster-d53w4",
+   "img": "/story/taqueria-poster.jpg"
+  }
+ ]
+}
