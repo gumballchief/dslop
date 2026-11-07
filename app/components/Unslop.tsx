@@ -39,6 +39,8 @@ async function readNdjson(res: Response, on: (ev: { t: string; d?: string }) => 
 const LINK_GUARD = `<script>(function(){document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href")||"";e.preventDefault();if(h==="#"){window.scrollTo({top:0,behavior:"smooth"});return;}if(h.charAt(0)==="#"){var id=decodeURIComponent(h.slice(1));var t=document.getElementById(id)||document.querySelector('[name="'+id.replace(/"/g,"")+'"]');if(t)t.scrollIntoView({behavior:"smooth",block:"start"});return;}if(/^(https?:|mailto:|tel:)/i.test(h))window.open(h,"_blank","noopener");},true);document.addEventListener("submit",function(e){e.preventDefault();},true);})();</script>`;
 const previewDoc = (html: string) => html + LINK_GUARD;
 const cleanHtml = (s: string) => s.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
+const TALK_CHIPS = ["Make them all darker", "More playful", "One more like Apple", "Different fonts"];
+type Leader = { name: string; url: string; why: string; thumb: string | null };
 const SHAPE_CHIPS = ["Make it darker", "Try a different font pairing", "Bigger, bolder headline", "Swap the main color", "Add a pricing section"];
 
 /** reads a picked image and shrinks it to at most 1600 px wide, as a JPEG data URL (keeps uploads small) */
@@ -96,6 +98,10 @@ export default function Unslop() {
   const lastPaint = useRef(0);
   const [mocks, setMocks] = useState<MockState[]>([]);
   const [focus, setFocus] = useState<number | null>(null); // the direction opened big, to shape in chat
+  const [dirState, setDirState] = useState<"idle" | "studying" | "ready" | "error">("idle"); // step two: the market study and six directions
+  const [leaders, setLeaders] = useState<Leader[]>([]);
+  const [talkMsgs, setTalkMsgs] = useState<Msg[]>([]); // the chat next to the six directions
+  const dirRun = useRef(0);
   const mockRun = useRef<{ gen: number; aborts: AbortController[] }>({ gen: 0, aborts: [] });
 
   // draws one direction's first screen, streaming it into its card
@@ -164,10 +170,49 @@ export default function Unslop() {
         throw new Error(data.error ?? "Couldn't read that");
       }
       setScan(data.scan); setServerShot(data.shot ?? ""); setAnalysis(data.analysis); setStage("pick"); setView(data.scan || useShot ? "before" : "after");
-      drawMocks(data.analysis, data.scan?.images ?? []); // the three first screens start drawing right away
+      getDirections(data.analysis, data.scan?.images ?? []); // step two starts right away, while the tells are read
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong"); setStage("home");
     }
+  }
+
+  // step two: look at the best sites in the market, get six directions, then draw all six first screens
+  async function getDirections(a: Analysis, images: string[]) {
+    const run = ++dirRun.current;
+    setDirState("studying"); setLeaders([]); setTalkMsgs([]); setMocks([]); setFocus(null);
+    try {
+      const res = await fetch("/api/directions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ analysis: a }) });
+      const data = await res.json();
+      if (run !== dirRun.current) return;
+      if (!res.ok) throw new Error(data.error ?? "Couldn't pick directions");
+      const full: Analysis = { ...a, directions: data.directions, conventions: data.conventions };
+      setAnalysis(full); setLeaders(data.leaders ?? []); setDirState("ready");
+      drawMocks(full, images);
+    } catch (err) {
+      if (run !== dirRun.current) return;
+      setDirState("error"); setError(err instanceof Error ? err.message : "Couldn't pick directions");
+    }
+  }
+
+  // the chat next to the six directions: talk, or ask for different looks (changed cards are redrawn)
+  async function talkTo(q: string) {
+    if (!analysis || dirState !== "ready") return;
+    const history = talkMsgs.map((m) => ({ who: m.who === "you" ? "person" : "DSlop", text: m.text }));
+    setBusy(true); setTalkMsgs((t) => [...t, { who: "you", text: q }]);
+    try {
+      const res = await fetch("/api/talk", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ analysis, message: q, history }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "That didn't go through");
+      const changes = (data.changes ?? []) as { index: number; direction: Direction }[];
+      const next = { ...analysis, directions: analysis.directions.map((d, i) => changes.find((c) => c.index === i)?.direction ?? d) };
+      setTalkMsgs((t) => [...t, { who: "unslop", text: data.reply + (changes.length ? ` (Redrawing ${changes.length === 1 ? "one look" : `${changes.length} looks`}.)` : "") }]);
+      if (changes.length) {
+        setAnalysis(next);
+        for (const c of changes) if (c.index >= 0 && c.index < next.directions.length) drawOne(next, scan?.images ?? [], c.index);
+      }
+    } catch (err) {
+      setTalkMsgs((t) => [...t, { who: "unslop", text: err instanceof Error ? err.message : "That didn't go through" }]);
+    } finally { setBusy(false); }
   }
 
   // builds the full page; from a shaped first screen when there is one (it keeps that screen and the asked-for changes)
@@ -214,6 +259,7 @@ export default function Unslop() {
     if (!q || busy) return;
     setAsk("");
     if (stage === "pick" && focus !== null) { await shapeMock(focus, q); return; }
+    if (stage === "pick") { await talkTo(q); return; }
     setBusy(true); setMsgs((m) => [...m, { who: "you", text: q }]);
     try {
       const res = await fetch("/api/edit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ html, ask: q, direction }) });
@@ -275,7 +321,7 @@ export default function Unslop() {
           {stage === "reading" && (
             <div className="steps">
               <h2>Reading {beforeImg ? "your screenshot" : mode === "link" ? "your site" : "your idea"}</h2>
-              {[beforeImg ? "Reading every word in it" : mode === "link" ? "Opening the page" : "Pulling out the facts", "Checking it against the slop list", "Keeping every real fact", "Picking three art directions"].map((s, i) => <p key={s} className="step" style={{ animationDelay: `${i * 1.6}s` }}>{s}</p>)}
+              {[beforeImg ? "Reading every word in it" : mode === "link" ? "Opening the page" : "Pulling out the facts", "Checking it against the slop list", "Keeping every real fact", "Finding the best sites in its market"].map((s, i) => <p key={s} className="step" style={{ animationDelay: `${i * 1.6}s` }}>{s}</p>)}
             </div>
           )}
 
@@ -288,6 +334,21 @@ export default function Unslop() {
                 <p>You just did what Lovable Pro charges <b>$25 a month</b> for. That's <b>$300 a year</b> back.</p>
                 <a className="primary" href="https://lovable.dev/settings" target="_blank" rel="noreferrer">Open Lovable billing</a>
               </div>
+            </section>
+          )}
+          {stage === "pick" && !shaping && analysis && (
+            <section className="chat talk">
+              <h3>Talk to DSlop</h3>
+              {talkMsgs.length === 0 && <p className="muted">{dirState === "ready" ? "Say anything. Ask why a look fits, or ask for different ones: darker, more playful, more like a brand you love. Changed looks redraw on the spot." : "Studying the best sites in your market and picking six directions. You can talk as soon as they're up."}</p>}
+              <div className="msgs">
+                {talkMsgs.map((m, i) => <p key={i} className={m.who}>{m.text}</p>)}
+                {busy && <p className="notes">Thinking it over...</p>}
+              </div>
+              {dirState === "ready" && <div className="askchips">{TALK_CHIPS.map((c) => <button key={c} type="button" onClick={() => edit(undefined, c)} disabled={busy}>{c}</button>)}</div>}
+              <form onSubmit={edit} className="ask">
+                <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={dirState === "ready" ? "Sup. Make them warmer, more like Stripe..." : "One moment, picking directions..."} aria-label="Talk to DSlop" disabled={dirState !== "ready"} />
+                <button className="primary" disabled={busy || !ask.trim() || dirState !== "ready"}>{busy ? "..." : "Send"}</button>
+              </form>
             </section>
           )}
           {(stage === "building" || stage === "ready" || shaping) && (
@@ -352,10 +413,25 @@ export default function Unslop() {
         <section className="canvas">
           {stage === "pick" && analysis && view === "after" && focus === null && (
             <div className="directions">
-              <h2>Three real directions</h2>
-              <p className="dlede">Each one is the actual first screen, drawn for {analysis.site.name.replace(/.$/, "")}. Open one to look closer and change anything, then build it.</p>
+              <h2>Six real directions</h2>
+              <p className="dlede">Three in the genre of the best sites in {analysis.market.name}, three bold alternatives. Each one is the actual first screen, drawn for {analysis.site.name.replace(/\.$/, "")}. Open one to look closer and change anything, then build it.</p>
+              <div className={`market${dirState === "studying" ? " studying" : ""}`}>
+                <span className="marketlabel mono">{dirState === "studying" ? `Looking at the top of ${analysis.market.name}` : `The top of ${analysis.market.name}, studied live`}</span>
+                <div className="leaders">
+                  {(leaders.length ? leaders : analysis.market.leaders.map((l) => ({ ...l, thumb: null }))).map((l) => (
+                    <a key={l.url} className="leader" href={l.url} target="_blank" rel="noreferrer" title={l.why}>
+                      {l.thumb ? <img src={l.thumb} alt={`${l.name} homepage`} /> : <span className="leaderwait" />}
+                      <b>{l.name}</b>
+                    </a>
+                  ))}
+                </div>
+                {analysis.conventions && <p className="conventions">{analysis.conventions}</p>}
+              </div>
+              {dirState === "error" && <div className="blank"><p>{error || "Couldn't pick directions."}</p><button className="ghost" onClick={() => getDirections(analysis, scan?.images ?? [])}>Try again</button></div>}
               <div className="mocks">
-                {analysis.directions.map((d, i) => <MockCard key={i} d={d} m={mocks[i]} onOpen={() => setFocus(i)} onRetry={() => drawOne(analysis, scan?.images ?? [], i)} />)}
+                {analysis.directions.length
+                  ? analysis.directions.map((d, i) => <MockCard key={i} d={d} m={mocks[i]} onOpen={() => setFocus(i)} onRetry={() => drawOne(analysis, scan?.images ?? [], i)} />)
+                  : dirState === "studying" && Array.from({ length: 6 }, (_, i) => <div key={i} className="mock"><div className="mockshot skeleton" /><div className="mockinfo"><b className="skelline" /><span className="skelline short" /></div></div>)}
               </div>
             </div>
           )}
@@ -380,7 +456,7 @@ export default function Unslop() {
               <div className="beforeTags">
                 {analysis && analysis.tells.length === 0 ? <span className="clean">No AI tells found</span> : analysis?.tells.slice(0, 6).map((t, i) => <span key={i} className={t.severity}>{t.label}</span>)}
               </div>
-              <button className="primary floating" onClick={() => setView("after")}>See three directions</button>
+              <button className="primary floating" onClick={() => setView("after")}>See six directions</button>
             </div>
           )}
           {stage === "reading" && (
@@ -475,8 +551,9 @@ function MockCard({ d, m, onOpen, onRetry }: { d: Direction; m?: MockState; onOp
         {m?.status === "drawing" && <span className="drawing mono">{m.shown ? "drawing it live" : "drawing the first screen"}</span>}
       </div>
       <div className="mockinfo">
+        <span className={`mocktag ${d.group ?? "library"}`}>{d.group === "market" ? "In your market's genre" : "Bold alternative"}</span>
         <b>{d.name}</b>
-        <span>{d.why}</span>
+        <span>{d.nod || d.why}</span>
         <span className="mockmeta"><span className="dswatches">{[p.ground, p.surface, p.ink, p.accent, p.accent2].map((c, i) => <i key={i} style={{ background: c }} />)}</span><span className="dfonts mono">{d.fonts.display} + {d.fonts.body}</span></span>
         {m?.status === "error" ? <span className="mockerr">{m.error} <button className="ghost" onClick={onRetry}>Draw it again</button></span> : <button className="ghost" onClick={onOpen}>Open and shape it</button>}
       </div>
@@ -498,7 +575,7 @@ function Home({ mode, setMode, input, setInput, shot, setShot, setError, error, 
       <section className="hero">
         <p className="brand">{BRAND.logo ? <img src={BRAND.logo} alt={BRAND.name} className="logoimg big" /> : BRAND.mark}</p>
         <h1>Your site, <span>{BRAND.past}</span></h1>
-        <p className="lede">Paste any site or drop a screenshot. We circle what makes it look AI-made, give you three real art directions, and rebuild it live. Publish it here, and cancel Lovable.</p>
+        <p className="lede">Paste any site or drop a screenshot. We circle what makes it look AI-made, study the best sites in your market, draw six real directions, and rebuild the one you pick live. Publish it here, and cancel Lovable.</p>
         <form className="start" onSubmit={onStart}>
           <div className="modes" role="tablist">
             <button type="button" role="tab" aria-selected={mode === "link"} className={mode === "link" ? "on" : ""} onClick={() => setMode("link")}>Paste a link</button>

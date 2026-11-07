@@ -19,8 +19,8 @@ testCases:
       - go to /
       - click "No site handy? Try a typical AI-made one"
       - wait up to two minutes for the reading to finish
-      - click "See three directions"
-      - wait until the three previews have finished drawing
+      - click "See six directions"
+      - wait up to three minutes until the six previews have finished drawing
       - click "Open and shape it" under the first preview
       - click "Build the full site"
       - wait up to five minutes until the Publish button appears

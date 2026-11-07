@@ -26,16 +26,22 @@ looks like the same purple gradient.
    | stripe.com | 10 | Not slop |
    | granola.ai | 10 | Not slop |
 
-3. **Shows three real directions, not color swatches.** It picks three looks from a written taste library
-   ([TASTE.md](TASTE.md)), each a different world, palette, type pairing and motion language, and draws the actual
-   first screen of all three at once, streaming in side by side. You see the real thing before you choose.
-4. **Lets you shape the one you like.** Open a preview big and change anything in chat: colors, fonts, the headline,
+3. **Studies your market.** It works out what the site is for, names the best-designed sites in that market, and
+   opens their homepages live (FocusFlow, a study app, got Endel, Headspace and Forest; Relay got Vercel, Resend and
+   Railway), so you can see what the top of your market looks like.
+4. **Shows six real directions, not color swatches.** Three speak the genre of those leaders without copying them
+   (never a logo, copy, illustration or one-to-one layout), and three are bold alternatives from a written taste
+   library ([TASTE.md](TASTE.md)) and the best 21st.dev template genres. It draws the actual first screen of all six
+   at once, streaming in side by side. You see the real thing before you choose.
+5. **Talk to it while you pick.** A chat next to the six: say hi, ask why a look fits, or ask for different ones
+   ("make them all darker", "one more like Apple") and the changed looks redraw on the spot.
+6. **Lets you shape the one you like.** Open a preview big and change anything in chat: colors, fonts, the headline,
    the layout, whole components. Every change lands on the preview right away.
-5. **Builds the full site from it, live.** The full page keeps the screen you approved and carries your changes all
+7. **Builds the full site from it, live.** The full page keeps the screen you approved and carries your changes all
    the way down, streaming into the preview as Claude writes it.
-6. **Keeps editing in chat, and refuses slop.** Ask for a purple gradient and you get the closest version that still
+8. **Keeps editing in chat, and refuses slop.** Ask for a purple gradient and you get the closest version that still
    looks made by a person, with a note saying why.
-7. **Publishes** to a live link on dslop.vercel.app, then shows what you just saved by not paying for Lovable.
+9. **Publishes** to a live link on dslop.vercel.app, then shows what you just saved by not paying for Lovable.
 
 Sites that block automated readers (Cloudflare challenges, 403s) are respected, not worked around: DSlop says so and
 asks for a screenshot instead, which it reads just as well.
@@ -56,7 +62,7 @@ two core workflows are written as code in [app/seldon.yml](app/seldon.yml):
 
 - **A pasted site gets its AI tells named.** Open the app, try the sample, and the page must show the site name, a slop
   percentage, and a list of tells that includes the purple gradient.
-- **A redesign is built live and published, then you can cancel Lovable.** Wait for the three real previews, open the
+- **A redesign is built live and published, then you can cancel Lovable.** Wait for the six real previews, open the
   first one, build the full site from it, publish, and a live link must appear with the "Now cancel Lovable" box.
 
 [seldon.mjs](seldon.mjs) runs them through Seldon's REST API (validate, run, wait, report, save).

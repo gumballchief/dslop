@@ -229,7 +229,10 @@ body 18-22px; never bold body text as decoration.
 - Reveal transitions that suit the world: an awning wipe for a shop, an iris for a port, blinds of color for a studio.
 - Tools: GSAP + ScrollTrigger for scroll stories, canvas/WebGL for the living object, CSS for marquees.
 
-## 7. Picking the three directions for a site
+## 7. Picking the six directions for a site
+
+Three speak the genre of the best sites in the site's own market (studied live, see 7c), three are bold alternatives from
+the table below and from the 21st.dev genres in 7d.
 
 | Site type | Offer these three |
 |---|---|
@@ -242,7 +245,38 @@ body 18-22px; never bold body text as decoration.
 | Creator / music / community / events | J computer inside the page, K poster type, D flat color |
 | Writing / research / finance advice | F editorial serif, H one ink, B painted world |
 
-The three offered must look nothing alike: never three dark ones, never three serif ones.
+The six offered must look nothing alike: never more than two dark ones, never more than two serif ones.
+
+## 7c. Market genre directions (in the genre of the leaders, never copies)
+
+DSlop opens the homepages of the three best-designed sites in the site's market and looks at them. A market direction
+borrows the genre: the layout habits, the palette family, the type mood, the kind of imagery, so the site feels at home
+next to its leaders. It never borrows their identity: no leader's logo, name, copy, illustration, mascot, signature
+color pair or one-to-one layout. If a leader is itself slop (purple gradient, glow, pill badges), take nothing from it.
+
+## 7d. 21st.dev template genres (references, never copies)
+
+| Genre | The look | Fits |
+|---|---|---|
+| Ink sculpture | black ground, light headline left, one monochrome 3D ink ribbon or sculpture slowly turning right | calm B2B SaaS, support, AI ops |
+| ASCII wake | white ground, a faint field of characters that ripples behind the hero | dev tools, infra, terminals |
+| Asymmetric proof | one quote set off-center next to a huge ghosted numeral, a slow logo marquee under it | agencies, B2B proof |
+| Product rides the scroll | one cut-out product photo travels down over giant condensed type on a saturated ground | drinks, food, DTC products |
+| Cobalt engraving | cobalt line-engraving illustration (architecture, landscape) on white, serif headline inside a framed arch | finance, law, consulting, institutions |
+| Origin descent | full-bleed landscape, huge white place name, an altitude or distance readout that changes as you scroll | coffee, travel, outdoor, origin stories |
+| Device opens on scroll | a laptop or phone tilts open as you scroll to reveal the real app | SaaS with a strong product screen |
+| Arrow field | a saturated field of tiny arrows or halftone dots, big white one-word headline | events, conferences, launches |
+| Soft meadow | a pastel 3D field (flowers, grass) inside a rounded panel, small calm headline | consumer fintech, savings, wellness |
+| Glyph portrait | an image made of large characters or glyphs filling the ground | AI, creative tools |
+| Fanned cards | centered headline, a fan of real photos or posts at the bottom edge | creator tools, social, media |
+| Inversion circle | one black circle that inverts the headline as you scroll | studios, agencies, design tools |
+| Marquee and seal | giant outlined marquee words behind a centered button, a small round seal | studio closings, CTAs |
+| Midnight guilloche | navy ground with fine guilloche line patterns, cream serif headline with one italic warm-gold word | AI assistants, premium productivity, private finance |
+| Photo ring | a ring of photo tiles around a small centered headline | photo, media, marketplaces |
+| Silk shader | full-bleed flowing silk in deep rose and black | beauty, fashion, music, luxury |
+| Starburst wordmark | black ground, huge condensed wordmark with one hand-drawn starburst | personal sites, studios, footers |
+
+Not a genre: a "Crafting Exceptional Websites" hero with purple gradient text on black is slop, even on 21st.dev.
 
 ## 7b. What the numbers from the study say (66 sites with full data)
 

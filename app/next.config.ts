@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/analyze": ["./node_modules/@sparticuz/chromium/bin/**/*"],
     "/api/health": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/directions": ["./node_modules/@sparticuz/chromium/bin/**/*"],
   },
 };
 

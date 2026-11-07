@@ -12,10 +12,12 @@ export const client = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KE
 
 const SYSTEM_TASTE: Anthropic.TextBlockParam = { type: "text", text: TASTE, cache_control: { type: "ephemeral" } };
 
-/* ───────── 1. analysis: what the site is, what's slop about it, three directions ───────── */
+/* ───────── 1. analysis: what the site is, what's slop about it, its market ───────── */
 
 const Direction = z.object({
-  key: z.string().describe("Letter of the art direction in the taste library, A to L"),
+  key: z.string().describe("Letter of the taste library direction (A to L), the 21st.dev genre name, or \"market\""),
+  group: z.enum(["market", "library"]).describe("market: speaks the genre of the market leaders; library: a bold alternative"),
+  nod: z.string().describe("One short line for the card: for market, whose genre it speaks and what it does differently (e.g. \"In the calm, product-first genre of Linear and Height, but warm and painted\"); for library, the look in plain words and where it comes from (e.g. \"A desktop of real windows, from the taste library\" or \"The ASCII-wake genre from 21st.dev\"), never a bare letter"),
   name: z.string().describe("Short memorable name for this direction for THIS site, 1-3 words"),
   why: z.string().describe("One sentence: why this look fits this site"),
   world: z.string().describe("What is behind and around the content: the world, concretely"),
@@ -30,7 +32,16 @@ const Direction = z.object({
   dark: z.boolean().describe("True when the ground is dark"),
 });
 
-export const Analysis = z.object({
+const Market = z.object({
+  name: z.string().describe("The market in a few plain words, e.g. 'developer infrastructure', 'specialty coffee roasters', 'neighborhood bike shops'"),
+  leaders: z.array(z.object({
+    name: z.string(),
+    url: z.string().describe("The real homepage, a full https URL"),
+    why: z.string().describe("What its design does well, one short sentence"),
+  })).min(2).max(4).describe("The best-designed real, well-known sites in this market (not this site itself), best first"),
+});
+
+export const AnalysisCore = z.object({
   site: z.object({
     name: z.string(),
     oneLiner: z.string().describe("What the company or person actually does, plainly, max 14 words"),
@@ -48,9 +59,11 @@ export const Analysis = z.object({
   strengths: z.array(z.string()).describe("What already works on this site, specific and true, 0 to 5 items. Required when the score is under 40."),
   score: z.number().int().min(0).max(100).describe("How AI-made it looks, by the rubric: 0-19 crafted, 20-39 mostly crafted, 40-69 template-ish, 70-100 AI template"),
   verdict: z.string().describe("One honest sentence about the current site, no filler words. If it is not slop, say so plainly."),
-  directions: z.array(Direction).length(3).describe("Three directions that look nothing alike, best first"),
+  market: Market,
 });
-export type Analysis = z.infer<typeof Analysis>;
+export type AnalysisCore = z.infer<typeof AnalysisCore>;
+// the directions arrive in a second step (directionsFor), after the market leaders have been looked at
+export type Analysis = AnalysisCore & { directions: Direction[]; conventions?: string };
 export type Direction = z.infer<typeof Direction>;
 
 const HONEST = `Be factual and calibrated. People will paste famous, well-designed sites to test you; a crafted site must get a low score and an honest verdict that says it is not slop.
@@ -75,12 +88,65 @@ export async function analyze(input: { scan?: Scan; brief?: string; shot?: Shot 
   const res = await client().messages.parse({
     model: MODEL,
     max_tokens: 16000,
-    output_config: { effort: "low", format: zodOutputFormat(Analysis) },
-    system: [SYSTEM_TASTE, { type: "text", text: "You are DSlop's art director. Read the site, name what makes it look AI-made with evidence (if anything does), keep every real fact, and pick the three best art directions from the taste library for THIS site (use section 7 to choose; the three must look nothing alike; for a site that is already crafted, offer three bold alternatives). Fill every palette and font for real; fonts must be real Google Fonts families. Never use em dashes or en dashes anywhere in your output.\n\n" + HONEST }],
+    output_config: { effort: "low", format: zodOutputFormat(AnalysisCore) },
+    system: [SYSTEM_TASTE, { type: "text", text: "You are DSlop's art director. Read the site, name what makes it look AI-made with evidence (if anything does), keep every real fact, and name its market with the three best-designed real sites in that market (well-known homepages with full https URLs, not this site itself), so their look can be studied next. Never use em dashes or en dashes anywhere in your output.\n\n" + HONEST }],
     messages: [{ role: "user", content: input.shot ? [{ type: "image", source: { type: "base64", media_type: input.shot.mediaType, data: input.shot.data } }, { type: "text", text: body }] : body }],
   });
   if (res.stop_reason === "refusal") throw new Error("Claude declined to read this site");
   if (!res.parsed_output) throw new Error("The analysis came back incomplete, try again");
+  return { ...undashAll(res.parsed_output), directions: [] };
+}
+
+/* ───────── 1b. six directions, after looking at the market leaders ───────── */
+
+const DirectionSet = z.object({
+  conventions: z.string().describe("What the leaders' sites have in common visually, one or two plain sentences"),
+  directions: z.array(Direction).length(6).describe("Six directions that look nothing alike: the three market ones first, then the three library ones"),
+});
+
+const DIRECTION_RULES = `You are DSlop's art director, choosing six directions for this site's new landing page.
+Directions 1 to 3 have group "market": each speaks the genre of the market leaders shown (taste library section 7c): their layout habits, palette family, type mood and kind of imagery, so the site feels at home next to them. In "nod" say whose genre it speaks and what it does differently. Never copy a leader: no logo, name, copy, illustration, mascot, signature color pair or one-to-one layout. If a leader is itself slop, take nothing from it.
+Directions 4 to 6 have group "library": bold alternatives from the taste library directions (section 3, keys A to L) and the 21st.dev genres (section 7d) that still suit this site. In "nod" describe the look in plain words and name where it comes from, never a bare library letter.
+All six must look nothing alike (section 7). Fill every palette and font for real; fonts must be real Google Fonts families. Headlines and sublines use the site's real facts. Never use em dashes or en dashes.`;
+
+export async function directionsFor(analysis: AnalysisCore, leaders: { name: string; url: string; shot: string | null }[]): Promise<{ conventions: string; directions: Direction[] }> {
+  const seen = leaders.filter((l) => l.shot);
+  const content: Anthropic.ContentBlockParam[] = [];
+  for (const l of seen) {
+    content.push({ type: "text", text: `${l.name} (${l.url}), the top of its homepage right now:` });
+    content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: l.shot! } });
+  }
+  const unseen = analysis.market.leaders.filter((l) => !seen.some((x) => x.url === l.url)).map((l) => l.name);
+  content.push({ type: "text", text: `The site:\n${JSON.stringify({ site: analysis.site, market: analysis.market.name, verdict: analysis.verdict, tells: analysis.tells.map((t) => t.label) }, null, 2)}\n\n${seen.length ? `Above are the homepages of the best-designed sites in its market (${seen.map((l) => l.name).join(", ")}).` : ""}${unseen.length ? ` These leaders could not be opened right now, use what you know of their look: ${unseen.join(", ")}.` : ""}\n\nPick the six directions.` });
+  const res = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 16000,
+    output_config: { effort: "low", format: zodOutputFormat(DirectionSet) },
+    system: [SYSTEM_TASTE, { type: "text", text: DIRECTION_RULES }],
+    messages: [{ role: "user", content }],
+  });
+  if (!res.parsed_output) throw new Error("The directions came back incomplete, try again");
+  return undashAll(res.parsed_output);
+}
+
+/* ───────── 1c. talking with DSlop while you pick ───────── */
+
+const Talk = z.object({
+  reply: z.string().describe("One or two short, warm, plain sentences to the person"),
+  changes: z.array(z.object({ index: z.number().int().min(0).max(5), direction: Direction })).describe("Directions to replace, by position (0 is the first card). Empty when they are just talking."),
+});
+export type Talk = z.infer<typeof Talk>;
+
+export async function talk(analysis: Analysis, message: string, history: { who: string; text: string }[]): Promise<Talk> {
+  const cards = analysis.directions.map((d, i) => ({ position: i, name: d.name, group: d.group, nod: d.nod, headline: d.headline, world: d.world, palette: d.palette, fonts: d.fonts, dark: d.dark }));
+  const res = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 16000,
+    output_config: { effort: "low", format: zodOutputFormat(Talk) },
+    system: [SYSTEM_TASTE, { type: "text", text: `You are DSlop, a design studio in a chat box, talking with the person while they look at six real first screens drawn for their site (the cards below, by position). Reply in one or two short plain sentences, friendly, like a good designer. If they ask for a change to the looks (darker, warmer, more playful, more like a brand or their market, a different font, color or component), put complete replacement directions in "changes": only the ones that should change (all six if they ask for all; for "one more like X" replace the one that fits their ask worst), following the same rules as before (real Google Fonts, real facts, the six still look nothing alike, no slop, keep each card's group unless they ask otherwise). If they name a brand, take its genre, never its identity. If they ask for slop (a purple gradient, glow, filler words), give the closest non-slop version and say so. If they just say hi or ask something, answer and return no changes. Never use em dashes or en dashes.` }],
+    messages: [{ role: "user", content: `The site: ${JSON.stringify(analysis.site)}\nMarket: ${analysis.market.name}\n\nThe six cards now:\n${JSON.stringify(cards, null, 1)}\n\nThe chat so far:\n${history.slice(-8).map((h) => `${h.who}: ${h.text}`).join("\n") || "(nothing yet)"}\n\nThe person says: ${message}` }],
+  });
+  if (!res.parsed_output) throw new Error("That didn't come back right, try again");
   return undashAll(res.parsed_output);
 }
 

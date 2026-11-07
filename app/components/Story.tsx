@@ -20,7 +20,7 @@ const MARKS: { box: [number, number, number, number]; label: string }[] = [
 const SAY = [
   { h: "This is what an AI builder gave Relay.", p: "Purple gradient, filler words, three emoji cards. You have seen this page a thousand times." },
   { h: "It circles every tell.", p: "Each one with the evidence from the page and the fix. Relay scores 94% slop." },
-  { h: "Then it picks three directions.", p: "Chosen from a taste library built by studying about 95 of the best landing pages. They never look alike. Tap the one you like." },
+  { h: "Then it drafts six directions.", p: "It studies the best sites in your market, then draws six real first screens that never look alike. Here are three of Relay's. Tap the one you like." },
   { h: "It rebuilds live, in your pick.", p: "About 35 seconds, every real fact kept. You watch it write the page. Scroll back up to try another." },
   { h: "Ask for anything. Except slop.", p: "Ask for a purple glow and it says no out loud, then does something better." },
   { h: "Publish. Then cancel Lovable.", p: "A live link and the code are yours. That's $300 a year back." },

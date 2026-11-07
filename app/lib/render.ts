@@ -142,3 +142,39 @@ export async function renderPage(url: string, budgetMs = 30_000): Promise<Render
     if (b) b.close().catch(() => {});
   }
 }
+
+/** The first screen of several sites at once (one Chrome, a tab each), as small JPEGs (base64), for studying a market.
+ *  Best effort: a site that won't open, errors, or shows a bot check comes back null. */
+export async function shootMany(urls: string[], budgetMs = 22_000): Promise<(string | null)[]> {
+  const out: (string | null)[] = urls.map(() => null);
+  let browser: Browser | null = null;
+  let done = false;
+  let clock: ReturnType<typeof setTimeout> | undefined;
+  const t0 = Date.now();
+  const timer = new Promise<void>((res) => { clock = setTimeout(res, budgetMs); });
+  const work = (async () => {
+    browser = await launch();
+    if (done) { await browser.close().catch(() => {}); return; }
+    await Promise.all(urls.map(async (url, i) => {
+      try {
+        const p = await browser!.newPage();
+        await p.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36");
+        const res = await p.goto(url, { waitUntil: "domcontentloaded", timeout: 14_000 });
+        if (!res || res.status() >= 400) return;
+        await p.waitForNetworkIdle({ idleTime: 500, timeout: 4000 }).catch(() => {});
+        await new Promise((r) => setTimeout(r, 900));
+        if (/just a moment|attention required|access denied|captcha/i.test(await p.title())) return; // a bot check: not ours to read
+        out[i] = Buffer.from(await p.screenshot({ type: "jpeg", quality: 62, clip: { x: 0, y: 0, width: 1440, height: 900, scale: 0.6 } })).toString("base64");
+      } catch (e) {
+        console.error(`[market] ${url} failed: ${e instanceof Error ? e.message : e}`);
+      }
+    }));
+  })().catch((e) => console.error(`[market] chrome failed: ${e instanceof Error ? e.message : e}`));
+  await Promise.race([work, timer]);
+  done = true;
+  clearTimeout(clock);
+  const b = browser as Browser | null;
+  if (b) b.close().catch(() => {});
+  console.error(`[market] ${out.filter(Boolean).length}/${urls.length} leaders seen in ${Date.now() - t0} ms`);
+  return out;
+}
