@@ -16,8 +16,11 @@ const SYSTEM_TASTE: Anthropic.TextBlockParam = { type: "text", text: TASTE, cach
 
 const Direction = z.object({
   key: z.string().describe("Letter of the taste library direction (A to L), the 21st.dev genre name, or \"market\""),
-  group: z.enum(["market", "library"]).describe("market: speaks the genre of the market leaders; library: a bold alternative"),
-  nod: z.string().describe("One short line for the card: for market, whose genre it speaks and what it does differently (e.g. \"In the calm, product-first genre of Linear and Height, but warm and painted\"); for library, the look in plain words and where it comes from (e.g. \"A desktop of real windows, from the taste library\" or \"The ASCII-wake genre from 21st.dev\"), never a bare letter"),
+  group: z.enum(["market", "library"]).describe("market: DSlop's own version of one market leader's site; library: a bold alternative"),
+  ref: z.string().describe("For market: the leader this is DSlop's version of, its name exactly as given. For library: an empty string"),
+  keep: z.string().describe("For market: what stays from that leader's general site look, concretely (page structure, kind of hero, the component vocabulary like answer tiles, mascot scene, leaderboard, app screen, the density and the level of polish). For library: an empty string"),
+  change: z.string().describe("For market: what is DSlop's own, concretely (moved placements, each component swapped for a close cousin, a different palette, different type). For library: an empty string"),
+  nod: z.string().describe("One short line for the card: for market, which leader it is a take on and what makes it its own (e.g. \"A Duolingo-style playful hero, with a drawn quiz card instead of a mascot, in coral and navy\"); for library, the look in plain words and where it comes from (e.g. \"A desktop of real windows, from the taste library\" or \"The ASCII-wake genre from 21st.dev\"), never a bare letter"),
   name: z.string().describe("Short memorable name for this direction for THIS site, 1-3 words"),
   why: z.string().describe("One sentence: why this look fits this site"),
   world: z.string().describe("What is behind and around the content: the world, concretely"),
@@ -105,7 +108,7 @@ const DirectionSet = z.object({
 });
 
 const DIRECTION_RULES = `You are DSlop's art director, choosing six directions for this site's new landing page.
-Directions 1 to 3 have group "market": each speaks the genre of the market leaders shown (taste library section 7c): their layout habits, palette family, type mood and kind of imagery, so the site feels at home next to them. In "nod" say whose genre it speaks and what it does differently. Never copy a leader: no logo, name, copy, illustration, mascot, signature color pair or one-to-one layout. If a leader is itself slop, take nothing from it.
+Directions 1 to 3 have group "market": each is DSlop's own version of ONE leader's site (a different leader for each when there are three; set "ref" to its name). The way a designer builds a new wallet after studying the best wallets: keep that leader's general site look at the same level of quality (its page structure, the kind of hero, its component vocabulary such as answer tiles, a mascot scene, a leaderboard or a real app screen, its density and polish), so anyone would think "oh, this is another quiz site like Duolingo". Then make it its own: move the placements around (flip the hero, reorder and re-lay the parts), swap each component for a close cousin (cards become tiles, a mascot becomes a drawn object, a carousel becomes a stack), and give it a different palette (not the leader's brand colors) and different type. Say exactly what stays in "keep" and what changes in "change", and describe the hero and world concretely. Never use the leader's logo, name, mascot, illustrations or copy. If a leader is itself slop, pick another leader's look or take only its structure.
 Directions 4 to 6 have group "library": bold alternatives from the taste library directions (section 3, keys A to L) and the 21st.dev genres (section 7d) that still suit this site. In "nod" describe the look in plain words and name where it comes from, never a bare library letter.
 All six must look nothing alike (section 7). Fill every palette and font for real; fonts must be real Google Fonts families. Headlines and sublines use the site's real facts. Never use em dashes or en dashes.`;
 
@@ -191,7 +194,7 @@ Hard rules:
 - Banned: em dashes and en dashes, eyebrow pill labels over headings, numbered labels, purple or pink gradients, glow and neon, glassmorphism, and the words elevate, supercharge, unleash, seamless, transform, empower, next-gen, cutting-edge, revolutionize, effortless.
 - The hero fills 100vh with a min-height of 760px. It must also hold up at 375px wide.`;
 
-function pageStream(rules: string, content: string, fast: boolean, maxTokens: number) {
+function pageStream(rules: string, content: string | Anthropic.Beta.BetaContentBlockParam[], fast: boolean, maxTokens: number) {
   return client().beta.messages.stream({
     model: MODEL,
     max_tokens: maxTokens,
@@ -219,9 +222,16 @@ export function buildStream(analysis: Analysis, direction: Direction, images: st
 }
 
 // The first screen only, so the three choices are real pages, not color swatches.
-export function mockStream(analysis: Analysis, direction: Direction, images: string[], fast = true) {
+// ref = the market leader this direction is a take on, as a screenshot: the preview matches its general look and quality
+export function mockStream(analysis: Analysis, direction: Direction, images: string[], fast = true, ref?: { name: string; shot: string } | null) {
   const brief = { site: analysis.site, direction, images };
-  return pageStream(MOCK_RULES, `Draw the first screen.\n\n${JSON.stringify(brief, null, 2)}`, fast, 16000);
+  const text = `Draw the first screen.\n\n${JSON.stringify(brief, null, 2)}`;
+  if (!ref) return pageStream(MOCK_RULES, text, fast, 16000);
+  return pageStream(MOCK_RULES, [
+    { type: "text", text: `The reference: the top of ${ref.name}'s homepage right now. This direction is DSlop's own version of it. Keep its general site look and its level of polish: ${direction.keep}. Make it its own: ${direction.change}. Use the direction's palette and fonts, never ${ref.name}'s logo, name, mascot, illustrations, copy or brand colors.` },
+    { type: "image", source: { type: "base64", media_type: "image/jpeg", data: ref.shot } },
+    { type: "text", text },
+  ], fast, 16000);
 }
 
 /* ───────── 3. chat edits: small find/replace patches that refuse slop ───────── */

@@ -323,3 +323,51 @@ a { color: inherit; }
 .mocktag.library { background: #e3e8ff; color: var(--cobalt) !important; }
 .chat.talk { padding: 14px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--line); }
 .chat.talk .msgs p:not(.you) { background: var(--paper); }
+
+/* the build: a big DSlopping sign over a site getting deslopped */
+.deslop { position: relative; height: 100%; min-height: 520px; overflow: hidden; }
+.dsworld { position: absolute; inset: 0; }
+.dsold, .dsnew { position: absolute; inset: 0; }
+.dsold img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.dsfake { position: absolute; inset: 0; background: #fff; display: grid; align-content: start; justify-items: center; gap: 18px; padding-top: 0; }
+.dsfake i { display: block; width: 100%; height: 46%; background: linear-gradient(135deg, #7c3aed, #a855f7 45%, #db2777); }
+.dsfake b { display: block; width: 46%; height: 26px; border-radius: 8px; background: #e7e7ee; }
+.dsfake b + b { width: 30%; }
+.dsfake span { display: inline-block; width: 26%; height: 90px; margin: 0 1%; border-radius: 14px; background: #f1f1f5; box-shadow: 0 0 0 1px #e6e6ee; }
+.dsnew { animation: dsreveal 5s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.dsnew .mockframe { height: 100%; }
+.dsground { position: absolute; inset: 0; }
+.dsscan { position: absolute; left: 0; right: 0; top: 0; height: 6px; z-index: 2; animation: dsscan 5s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+@keyframes dsreveal {
+  0% { clip-path: inset(0 0 100% 0); }
+  46%, 62% { clip-path: inset(0 0 0% 0); }
+  92%, 100% { clip-path: inset(0 0 100% 0); }
+}
+@keyframes dsscan {
+  0% { top: 0%; }
+  46%, 62% { top: calc(100% - 6px); }
+  92%, 100% { top: 0%; }
+}
+.dschip { position: absolute; padding: 8px 14px; border-radius: 10px; background: var(--tomato); color: #fff; font-family: var(--mono); font-size: 14px; white-space: nowrap; box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5); animation: dschip 1.6s ease-in-out infinite; }
+@keyframes dschip { 0%, 100% { transform: rotate(-1.5deg) scale(1); } 50% { transform: rotate(1.5deg) scale(1.05); } }
+.dssign { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(600px, 88%); padding: 30px 34px 26px; border-radius: 30px; background: var(--paper); color: var(--ink); text-align: center; box-shadow: 0 60px 120px -40px rgba(0, 0, 0, 0.7), 0 0 0 1.5px rgba(0, 0, 0, 0.06); }
+.dslogo { height: 44px; width: auto; animation: dswobble 2.4s ease-in-out infinite; }
+@keyframes dswobble { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg) translateY(-3px); } }
+.dssign h2 { font-family: var(--display); font-weight: 800; font-size: clamp(44px, 5.4vw, 80px); letter-spacing: -0.05em; line-height: 0.95; margin: 12px 0 6px; }
+.dsdots i { font-style: normal; animation: dsdot 1.2s infinite; }
+.dsdots i:nth-child(2) { animation-delay: 0.2s; }
+.dsdots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dsdot { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
+.dsname { margin: 0 0 18px; font-size: 17px; color: var(--grey); }
+.dsbar { height: 12px; border-radius: 999px; background: #e9e4da; overflow: hidden; }
+.dsbar i { display: block; height: 100%; border-radius: 999px; transition: width 0.8s cubic-bezier(0.3, 0.7, 0.2, 1); }
+.dsphase { margin: 12px 0 0; font-weight: 700; font-size: 18px; }
+.dssteps { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 14px 0 0; }
+.dssteps li { padding: 6px 11px; border-radius: 999px; background: #f0ece4; color: var(--grey); font-size: 13px; font-weight: 600; }
+.dssteps li.done { background: #d7f7ea; color: #0b5e41; }
+.dssteps li.now { background: var(--ink); color: #fff; }
+@media (prefers-reduced-motion: reduce) {
+  .dsnew, .dsscan, .dschip, .dslogo, .dsdots i { animation: none; }
+  .dsnew { clip-path: inset(0 0 50% 0); }
+  .dschip, .dsscan { display: none; }
+}

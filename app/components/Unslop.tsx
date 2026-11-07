@@ -39,7 +39,7 @@ async function readNdjson(res: Response, on: (ev: { t: string; d?: string }) => 
 const LINK_GUARD = `<script>(function(){document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href")||"";e.preventDefault();if(h==="#"){window.scrollTo({top:0,behavior:"smooth"});return;}if(h.charAt(0)==="#"){var id=decodeURIComponent(h.slice(1));var t=document.getElementById(id)||document.querySelector('[name="'+id.replace(/"/g,"")+'"]');if(t)t.scrollIntoView({behavior:"smooth",block:"start"});return;}if(/^(https?:|mailto:|tel:)/i.test(h))window.open(h,"_blank","noopener");},true);document.addEventListener("submit",function(e){e.preventDefault();},true);})();</script>`;
 const previewDoc = (html: string) => html + LINK_GUARD;
 const cleanHtml = (s: string) => s.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
-const TALK_CHIPS = ["Make them all darker", "More playful", "One more like Apple", "Different fonts"];
+const TALK_CHIPS = ["It's for teachers, keep it simple", "Make them all darker", "One more like Apple", "Different fonts"];
 type Leader = { name: string; url: string; why: string; thumb: string | null };
 const SHAPE_CHIPS = ["Make it darker", "Try a different font pairing", "Bigger, bolder headline", "Swap the main color", "Add a pricing section"];
 
@@ -95,6 +95,7 @@ export default function Unslop() {
   const [busy, setBusy] = useState(false);
   const [published, setPublished] = useState<{ id: string; path: string } | null>(null);
   const [shown, setShown] = useState(""); // the HTML currently in the preview frame (throttled during the build)
+  const [buildFrom, setBuildFrom] = useState(""); // the approved first screen the build started from (for the deslopping scene)
   const lastPaint = useRef(0);
   const [mocks, setMocks] = useState<MockState[]>([]);
   const [focus, setFocus] = useState<number | null>(null); // the direction opened big, to shape in chat
@@ -102,6 +103,7 @@ export default function Unslop() {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [talkMsgs, setTalkMsgs] = useState<Msg[]>([]); // the chat next to the six directions
   const dirRun = useRef(0);
+  const leadersRef = useRef<Leader[]>([]); // the studied leaders, for drawing market directions with their reference
   const mockRun = useRef<{ gen: number; aborts: AbortController[] }>({ gen: 0, aborts: [] });
 
   // draws one direction's first screen, streaming it into its card
@@ -113,7 +115,9 @@ export default function Unslop() {
     patch({ html: "", shown: "", status: "drawing", error: undefined });
     let page = "", last = 0;
     try {
-      const res = await fetch("/api/mock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ analysis: a, direction: a.directions[i], images }), signal: ctrl.signal });
+      const d = a.directions[i];
+      const lead = d.group === "market" ? leadersRef.current.find((l) => l.thumb && l.name.toLowerCase() === (d.ref ?? "").toLowerCase()) : undefined;
+      const res = await fetch("/api/mock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ analysis: a, direction: d, images, ref: lead ? { name: lead.name, shot: lead.thumb } : undefined }), signal: ctrl.signal });
       await readNdjson(res, (ev) => {
         if (ev.t !== "html") return;
         page += ev.d ?? "";
@@ -186,6 +190,7 @@ export default function Unslop() {
       if (run !== dirRun.current) return;
       if (!res.ok) throw new Error(data.error ?? "Couldn't pick directions");
       const full: Analysis = { ...a, directions: data.directions, conventions: data.conventions };
+      leadersRef.current = data.leaders ?? [];
       setAnalysis(full); setLeaders(data.leaders ?? []); setDirState("ready");
       drawMocks(full, images);
     } catch (err) {
@@ -219,7 +224,7 @@ export default function Unslop() {
   async function build(d: Direction, from?: MockState) {
     if (!analysis) return;
     const mock = from?.status === "ready" ? from : undefined;
-    setDirection(d); setStage("building"); setHtml(""); setShown(mock?.html ?? ""); setNotes(""); setView("after"); setPublished(null); setError(""); lastPaint.current = Date.now();
+    setDirection(d); setStage("building"); setHtml(""); setShown(mock?.html ?? ""); setBuildFrom(mock?.html ?? ""); setNotes(""); setView("after"); setPublished(null); setError(""); lastPaint.current = Date.now();
     setMsgs([...(mock?.chat ?? []), { who: "unslop", text: mock ? `Building the full ${d.name} site from this first screen${mock.asks.length ? ", with your changes all the way down" : ""}.` : `Building it in ${d.name}. ${d.world}` }]);
     let page = "";
     try {
@@ -294,7 +299,6 @@ export default function Unslop() {
     URL.revokeObjectURL(a.href);
   }
 
-  const lines = useMemo(() => html.split("\n").length, [html]);
 
   if (stage === "home") return <Home mode={mode} setMode={(m) => { setMode(m); setError(""); }} input={input} setInput={setInput} shot={shot} setShot={setShot} setError={setError} error={error} onStart={start} onSample={() => { setMode("link"); setInput(origin + SAMPLE); start(undefined, SAMPLE); }} />;
 
@@ -339,14 +343,14 @@ export default function Unslop() {
           {stage === "pick" && !shaping && analysis && (
             <section className="chat talk">
               <h3>Talk to DSlop</h3>
-              {talkMsgs.length === 0 && <p className="muted">{dirState === "ready" ? "Say anything. Ask why a look fits, or ask for different ones: darker, more playful, more like a brand you love. Changed looks redraw on the spot." : "Studying the best sites in your market and picking six directions. You can talk as soon as they're up."}</p>}
+              {talkMsgs.length === 0 && <p className="muted">{dirState === "ready" ? "Tell DSlop what's going on: who the site is for, what you need, what you like or don't about these. It redraws the looks that should change." : "Studying the best sites in your market and picking six directions. You can talk as soon as they're up."}</p>}
               <div className="msgs">
                 {talkMsgs.map((m, i) => <p key={i} className={m.who}>{m.text}</p>)}
                 {busy && <p className="notes">Thinking it over...</p>}
               </div>
               {dirState === "ready" && <div className="askchips">{TALK_CHIPS.map((c) => <button key={c} type="button" onClick={() => edit(undefined, c)} disabled={busy}>{c}</button>)}</div>}
               <form onSubmit={edit} className="ask">
-                <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={dirState === "ready" ? "Sup. Make them warmer, more like Stripe..." : "One moment, picking directions..."} aria-label="Talk to DSlop" disabled={dirState !== "ready"} />
+                <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={dirState === "ready" ? "Who it's for, what you need, what to change..." : "One moment, picking directions..."} aria-label="Talk to DSlop" disabled={dirState !== "ready"} />
                 <button className="primary" disabled={busy || !ask.trim() || dirState !== "ready"}>{busy ? "..." : "Send"}</button>
               </form>
             </section>
@@ -359,7 +363,7 @@ export default function Unslop() {
                 {chatMsgs.map((m, i) => <p key={i} className={m.who}>{m.text}</p>)}
                 {busy && shaping && <p className="notes">Changing it...</p>}
                 {stage === "building" && <p className="notes">{notes ? notes.slice(-420) : "Laying out the world first..."}</p>}
-                {stage === "building" && <p className="progress mono">{lines} lines written</p>}
+                {stage === "building" && <p className="progress mono">{buildPhase(html).label}</p>}
               </div>
               {(stage === "ready" || shaping) && (
                 <>
@@ -467,13 +471,57 @@ export default function Unslop() {
           )}
           {(stage === "building" || stage === "ready") && (
             <div className="preview">
-              {hasBefore && <div className="toggle"><button className={view === "before" ? "on" : ""} onClick={() => setView("before")}>Before</button><button className={view === "after" ? "on" : ""} onClick={() => setView("after")}>After</button></div>}
-              {view === "after" ? (shown ? <iframe title="The unslopped site" srcDoc={previewDoc(shown)} sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" /> : <div className="blank"><p>The world goes in first, then the words.</p></div>) : <div className="before">{beforeView}</div>}
+              {stage === "building" && direction && analysis && (
+                <Deslopping name={analysis.site.name} before={beforeImg || serverShot} after={buildFrom} palette={direction.palette} tells={analysis.tells.map((t) => t.label)} html={html} />
+              )}
+              {stage === "ready" && hasBefore && <div className="toggle"><button className={view === "before" ? "on" : ""} onClick={() => setView("before")}>Before</button><button className={view === "after" ? "on" : ""} onClick={() => setView("after")}>After</button></div>}
+              {stage === "building" ? null : view === "after" ? (shown ? <iframe title="The unslopped site" srcDoc={previewDoc(shown)} sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" /> : <div className="blank"><p>The world goes in first, then the words.</p></div>) : <div className="before">{beforeView}</div>}
             </div>
           )}
         </section>
       </div>
     </main>
+  );
+}
+
+/* how far the page being written has got, read from the HTML itself (not a guess) */
+const BUILD_STEPS = ["Type and colors", "The hero", "Every section", "Motion", "Final checks"];
+function buildPhase(html: string): { step: number; label: string; pct: number } {
+  if (/<\/html>/i.test(html)) return { step: 4, label: "Final checks", pct: 97 };
+  if (/<script/i.test(html.slice(html.search(/<body/i) + 1 || 0)) && /<body/i.test(html)) return { step: 3, label: "Adding the motion", pct: 88 };
+  if (!/<\/style>/i.test(html)) {
+    const css = html.length;
+    return { step: 0, label: html ? "Setting the type and colors" : "Choosing the type and colors", pct: Math.min(18, 3 + Math.round(css / 900)) };
+  }
+  const n = (html.match(/<section\b/gi) ?? []).length + (/<header\b/i.test(html) ? 1 : 0);
+  if (n <= 1) return { step: 1, label: "Laying out the hero", pct: 22 };
+  return { step: 2, label: `Building section ${n}`, pct: Math.min(84, 24 + Math.round((Math.min(n, 9) / 9) * 60)) };
+}
+
+/* while the full site is written: a big sign over a site getting deslopped. The real "before" page is wiped away
+   by the approved first screen, and the real tells get struck off as the line passes them. */
+function Deslopping({ name, before, after, palette, tells, html }: { name: string; before: string; after: string; palette: Direction["palette"]; tells: string[]; html: string }) {
+  const phase = buildPhase(html);
+  const chips = tells.slice(0, 5);
+  return (
+    <div className="deslop" style={{ background: palette.ground }} role="status" aria-live="polite">
+      <div className="dsworld" aria-hidden>
+        <div className="dsold">
+          {before ? <img src={before} alt="" /> : <div className="dsfake"><i /><b /><b /><span /><span /><span /></div>}
+          {chips.map((t, i) => <span key={t} className="dschip" style={{ top: `${14 + i * 15}%`, left: i % 2 ? "56%" : "7%", animationDelay: `${i * 0.3}s` }}>{t}</span>)}
+        </div>
+        <div className="dsnew">{after ? <MockFrame html={after} title="" tall /> : <div className="dsground" style={{ background: `linear-gradient(180deg, ${palette.ground}, ${palette.surface})` }} />}</div>
+        <i className="dsscan" style={{ background: palette.accent }} />
+      </div>
+      <div className="dssign">
+        {BRAND.logo && <img src={BRAND.logo} alt="" className="dslogo" />}
+        <h2>DSlopping<span className="dsdots" aria-hidden><i>.</i><i>.</i><i>.</i></span></h2>
+        <p className="dsname">{name}, in your pick</p>
+        <div className="dsbar" aria-label={`${phase.pct}% done`}><i style={{ width: `${phase.pct}%`, background: palette.accent }} /></div>
+        <p className="dsphase">{phase.label}</p>
+        <ol className="dssteps">{BUILD_STEPS.map((st, i) => <li key={st} className={i < phase.step ? "done" : i === phase.step ? "now" : ""}>{st}</li>)}</ol>
+      </div>
+    </div>
   );
 }
 
@@ -551,7 +599,7 @@ function MockCard({ d, m, onOpen, onRetry }: { d: Direction; m?: MockState; onOp
         {m?.status === "drawing" && <span className="drawing mono">{m.shown ? "drawing it live" : "drawing the first screen"}</span>}
       </div>
       <div className="mockinfo">
-        <span className={`mocktag ${d.group ?? "library"}`}>{d.group === "market" ? "In your market's genre" : "Bold alternative"}</span>
+        <span className={`mocktag ${d.group ?? "library"}`}>{d.group === "market" ? (d.ref ? `Our take on ${d.ref}` : "In your market's genre") : "Bold alternative"}</span>
         <b>{d.name}</b>
         <span>{d.nod || d.why}</span>
         <span className="mockmeta"><span className="dswatches">{[p.ground, p.surface, p.ink, p.accent, p.accent2].map((c, i) => <i key={i} style={{ background: c }} />)}</span><span className="dfonts mono">{d.fonts.display} + {d.fonts.body}</span></span>

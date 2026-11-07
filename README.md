@@ -29,16 +29,18 @@ looks like the same purple gradient.
 3. **Studies your market.** It works out what the site is for, names the best-designed sites in that market, and
    opens their homepages live (FocusFlow, a study app, got Endel, Headspace and Forest; Relay got Vercel, Resend and
    Railway), so you can see what the top of your market looks like.
-4. **Shows six real directions, not color swatches.** Three speak the genre of those leaders without copying them
-   (never a logo, copy, illustration or one-to-one layout), and three are bold alternatives from a written taste
+4. **Shows six real directions, not color swatches.** Three are DSlop's own take on one leader each: the same general
+   site look and level of quality (so you think "another quiz site, like Duolingo"), with the placements moved, the
+   components swapped for close cousins, and its own colors and type (never a logo, copy, illustration or mascot), and three are bold alternatives from a written taste
    library ([TASTE.md](TASTE.md)) and the best 21st.dev template genres. It draws the actual first screen of all six
    at once, streaming in side by side. You see the real thing before you choose.
 5. **Talk to it while you pick.** A chat next to the six: say hi, ask why a look fits, or ask for different ones
    ("make them all darker", "one more like Apple") and the changed looks redraw on the spot.
 6. **Lets you shape the one you like.** Open a preview big and change anything in chat: colors, fonts, the headline,
    the layout, whole components. Every change lands on the preview right away.
-7. **Builds the full site from it, live.** The full page keeps the screen you approved and carries your changes all
-   the way down, streaming into the preview as Claude writes it.
+7. **Builds the full site from it.** A big DSlopping screen shows the old page being wiped away by your pick, with real
+   progress read from the page as Claude writes it. The full page keeps the screen you approved and carries your
+   changes all the way down.
 8. **Keeps editing in chat, and refuses slop.** Ask for a purple gradient and you get the closest version that still
    looks made by a person, with a note saying why.
 9. **Publishes** to a live link on dslop.vercel.app, then shows what you just saved by not paying for Lovable.

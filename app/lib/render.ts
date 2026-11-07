@@ -164,6 +164,7 @@ export async function shootMany(urls: string[], budgetMs = 22_000): Promise<(str
         await p.waitForNetworkIdle({ idleTime: 500, timeout: 4000 }).catch(() => {});
         await new Promise((r) => setTimeout(r, 900));
         if (/just a moment|attention required|access denied|captcha/i.test(await p.title())) return; // a bot check: not ours to read
+        if (((await p.evaluate(() => document.body?.innerText.trim().length ?? 0)) as number) < 40) return; // loaded blank: nothing to study
         out[i] = Buffer.from(await p.screenshot({ type: "jpeg", quality: 62, clip: { x: 0, y: 0, width: 1440, height: 900, scale: 0.6 } })).toString("base64");
       } catch (e) {
         console.error(`[market] ${url} failed: ${e instanceof Error ? e.message : e}`);
