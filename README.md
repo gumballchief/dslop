@@ -61,15 +61,15 @@ two core workflows are written as code in [app/seldon.yml](app/seldon.yml):
 
 [seldon.mjs](seldon.mjs) runs them through Seldon's REST API (validate, run, wait, report, save).
 
-Final run, November 7, 2026, against the final build at https://dslop.vercel.app, with the real previews and the
-shape chat (experiment `c540a002-f6fd-4f09-b5c0-63afd8139329`): **2 of 2 passed.**
+Final run, November 7, 2026, against the final build at https://dslop.vercel.app, with the real previews, the shape
+chat and the real-Chrome page reading (experiment `ae7cab13-da32-40c5-b1a0-f1631224328f`): **2 of 2 passed.**
 
 | Workflow | Verdict | What Seldon's agent saw |
 | --- | --- | --- |
-| A pasted site gets its AI tells named | PASS | The site name Relay, a "90% slop" badge, and a list of tells led by "Purple to pink gradient", citing the real CSS values |
+| A pasted site gets its AI tells named | PASS | The site name Relay, a "92% slop" badge, and a list of tells led by "Purple to pink gradient", citing the real CSS values |
 | A redesign is built live and published, then you can cancel Lovable | PASS | "It's live" with a live link on dslop.vercel.app/s/..., right above the "Now cancel Lovable." box and its billing button |
 
-Both workflows also passed on the two earlier builds of the day (experiments `102f055a-...` and `00395cca-...`).
+Both workflows also passed on the three earlier builds of the day (experiments `102f055a-...`, `00395cca-...` and `c540a002-...`).
 
 ## Stack
 
