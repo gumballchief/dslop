@@ -6,7 +6,7 @@ export const maxDuration = 120;
 export async function POST(req: Request) {
   const { html, ask, direction } = (await req.json().catch(() => ({}))) as { html?: string; ask?: string; direction?: Direction | null };
   if (!html || !ask?.trim()) return oops("Say what to change");
-  if (!allow(req, "edit", 60)) return oops("That's a lot of edits in an hour. Try again soon.", 429);
+  if (!allow(req, "edit", 200)) return oops("That's a lot of edits in an hour. Try again soon.", 429);
   try {
     const out = await editPage(html, ask.slice(0, 1200), direction ?? null);
     let next = html, applied = 0;

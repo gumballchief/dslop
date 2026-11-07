@@ -26,12 +26,16 @@ looks like the same purple gradient.
    | stripe.com | 10 | Not slop |
    | granola.ai | 10 | Not slop |
 
-3. **Offers three directions** picked from a written taste library ([TASTE.md](TASTE.md)): each one a different world,
-   palette, type pairing and motion language, written with the site's real facts.
-4. **Builds it live.** The new page streams into the preview as Claude writes it, one complete HTML file.
-5. **Edits in chat, and refuses slop.** Ask for a purple gradient and you get the closest version that still looks
-   made by a person, with a note saying why.
-6. **Publishes** to a live link on dslop.vercel.app, then shows what you just saved by not paying for Lovable.
+3. **Shows three real directions, not color swatches.** It picks three looks from a written taste library
+   ([TASTE.md](TASTE.md)), each a different world, palette, type pairing and motion language, and draws the actual
+   first screen of all three at once, streaming in side by side. You see the real thing before you choose.
+4. **Lets you shape the one you like.** Open a preview big and change anything in chat: colors, fonts, the headline,
+   the layout, whole components. Every change lands on the preview right away.
+5. **Builds the full site from it, live.** The full page keeps the screen you approved and carries your changes all
+   the way down, streaming into the preview as Claude writes it.
+6. **Keeps editing in chat, and refuses slop.** Ask for a purple gradient and you get the closest version that still
+   looks made by a person, with a note saying why.
+7. **Publishes** to a live link on dslop.vercel.app, then shows what you just saved by not paying for Lovable.
 
 Sites that block automated readers (Cloudflare challenges, 403s) are respected, not worked around: DSlop says so and
 asks for a screenshot instead, which it reads just as well.
@@ -43,20 +47,20 @@ two core workflows are written as code in [app/seldon.yml](app/seldon.yml):
 
 - **A pasted site gets its AI tells named.** Open the app, try the sample, and the page must show the site name, a slop
   percentage, and a list of tells that includes the purple gradient.
-- **A redesign is built live and published, then you can cancel Lovable.** Pick a direction, wait for the live build,
-  publish, and a live link must appear with the "Now cancel Lovable" box.
+- **A redesign is built live and published, then you can cancel Lovable.** Wait for the three real previews, open the
+  first one, build the full site from it, publish, and a live link must appear with the "Now cancel Lovable" box.
 
 [seldon.mjs](seldon.mjs) runs them through Seldon's REST API (validate, run, wait, report, save).
 
-Final run, November 7, 2026, against the final build at https://dslop.vercel.app (experiment
-`00395cca-5c5b-4af9-93b7-93e4bb8b1695`): **2 of 2 passed.**
+Final run, November 7, 2026, against the final build at https://dslop.vercel.app, with the real previews and the
+shape chat (experiment `c540a002-f6fd-4f09-b5c0-63afd8139329`): **2 of 2 passed.**
 
 | Workflow | Verdict | What Seldon's agent saw |
 | --- | --- | --- |
-| A pasted site gets its AI tells named | PASS | The site name Relay, a "92% slop" badge, and a list of tells led by "Purple to pink gradient" |
-| A redesign is built live and published, then you can cancel Lovable | PASS | "It's live" with a live link on dslop.vercel.app/s/..., and the "Now cancel Lovable." box with its billing button |
+| A pasted site gets its AI tells named | PASS | The site name Relay, a "90% slop" badge, and a list of tells led by "Purple to pink gradient", citing the real CSS values |
+| A redesign is built live and published, then you can cancel Lovable | PASS | "It's live" with a live link on dslop.vercel.app/s/..., right above the "Now cancel Lovable." box and its billing button |
 
-Both workflows had also passed on the first build earlier in the day.
+Both workflows also passed on the two earlier builds of the day (experiments `102f055a-...` and `00395cca-...`).
 
 ## Stack
 

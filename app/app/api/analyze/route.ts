@@ -28,7 +28,7 @@ function shotFromDataUrl(d: unknown): Shot | null {
 export async function POST(req: Request) {
   const { url, brief, image } = (await req.json().catch(() => ({}))) as { url?: string; brief?: string; image?: string };
   if (!url && !brief && !image) return oops("Paste a link, upload a screenshot, or describe the site you want");
-  if (!allow(req, "analyze", 30)) return oops("That's a lot of sites in an hour. Take a breather and try again soon.", 429);
+  if (!allow(req, "analyze", 60)) return oops("That's a lot of sites in an hour. Take a breather and try again soon.", 429);
   try {
     if (image) {
       const shot = shotFromDataUrl(image);

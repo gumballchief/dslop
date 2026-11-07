@@ -99,21 +99,50 @@ Hard rules:
 - Works at 375px wide with no horizontal scroll. Buttons are real links (#sections or mailto/tel from the facts).
 - Write the CSS in a <style> in the head first, then the body, then one <script> at the end. Keep the whole file under 1300 lines.`;
 
-// fast = Opus 5.5 fast mode (same model, up to ~2.5x the output speed, premium price). The route falls back to
-// standard speed when fast mode is rate limited or unavailable.
-export function buildStream(analysis: Analysis, direction: Direction, images: string[], fast = true) {
-  const brief = { site: analysis.site, direction, images };
+const MOCK_RULES = `You are DSlop's designer. Draw the FIRST SCREEN of this site's new landing page in the chosen direction, so the person can see the real look before the full page is built: the nav and the complete hero at 1440 by 900, with the top of the next section just peeking in at the bottom edge.
+
+Output: ONE complete HTML file and nothing else. Start with <!doctype html>, end with </html>. No markdown fences, no commentary. Under 200 lines.
+
+Hard rules:
+- Inline all CSS. Fonts from Google Fonts via <link>. No scripts at all; any motion is CSS keyframes only.
+- Everything is visible at load: no reveal animations that start hidden (this is shown as a preview).
+- Use the site's real images (URLs given) where they fit, with object-fit and alt text. Never stock photos or placeholder services. When there is no image, build the world with CSS or inline SVG: drawn and specific to this site, never gray boxes.
+- Keep real facts only. Never invent numbers, customers, reviews or awards.
+- Follow the direction exactly: its world, palette, fonts, signature, headline, subline and CTA. This screen must already be unmistakably this direction and nothing like the other two.
+- Banned: em dashes and en dashes, eyebrow pill labels over headings, numbered labels, purple or pink gradients, glow and neon, glassmorphism, and the words elevate, supercharge, unleash, seamless, transform, empower, next-gen, cutting-edge, revolutionize, effortless.
+- The hero fills 100vh with a min-height of 760px. It must also hold up at 375px wide.`;
+
+function pageStream(rules: string, content: string, fast: boolean, maxTokens: number) {
   return client().beta.messages.stream({
     model: MODEL,
-    max_tokens: 64000,
+    max_tokens: maxTokens,
     betas: fast ? ["server-side-fallback-2026-07-01", "fast-mode-2026-02-01"] : ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
     ...(fast ? { speed: "fast" as const } : {}),
     thinking: { type: "adaptive", display: "summarized" },
     output_config: { effort: "low" },
-    system: [SYSTEM_TASTE, { type: "text", text: BUILD_RULES }],
-    messages: [{ role: "user", content: `Build it.\n\n${JSON.stringify(brief, null, 2)}` }],
+    system: [SYSTEM_TASTE, { type: "text", text: rules }],
+    messages: [{ role: "user", content }],
   });
+}
+export type PageStream = ReturnType<typeof pageStream>;
+
+// fast = Opus 5.5 fast mode (same model, up to ~2.5x the output speed, premium price). The routes fall back to
+// standard speed when fast mode is rate limited or unavailable.
+// from = the first screen the person approved (and the changes they asked for in chat): the full page keeps it.
+export function buildStream(analysis: Analysis, direction: Direction, images: string[], fast = true, from?: { mock?: string; asks?: string[] }) {
+  const brief = { site: analysis.site, direction, images };
+  const asks = (from?.asks ?? []).filter(Boolean);
+  const approved = from?.mock
+    ? `\n\nThe person already approved the first screen below${asks.length ? `, after asking for these changes: ${asks.map((a) => `"${a}"`).join("; ")}` : ""}. Keep its nav, hero, palette, fonts, components and every change exactly as they are (reuse its CSS and markup), keep anything else it already contains, and build the rest of the page below it in the same direction, carrying the requested changes through the whole page.\n\nThe approved first screen:\n\n${from.mock}`
+    : "";
+  return pageStream(BUILD_RULES, `Build it.\n\n${JSON.stringify(brief, null, 2)}${approved}`, fast, 64000);
+}
+
+// The first screen only, so the three choices are real pages, not color swatches.
+export function mockStream(analysis: Analysis, direction: Direction, images: string[], fast = true) {
+  const brief = { site: analysis.site, direction, images };
+  return pageStream(MOCK_RULES, `Draw the first screen.\n\n${JSON.stringify(brief, null, 2)}`, fast, 16000);
 }
 
 /* ───────── 3. chat edits: small find/replace patches that refuse slop ───────── */

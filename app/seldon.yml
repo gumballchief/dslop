@@ -20,7 +20,9 @@ testCases:
       - click "No site handy? Try a typical AI-made one"
       - wait up to two minutes for the reading to finish
       - click "See three directions"
-      - click the first of the three direction cards
+      - wait until the three previews have finished drawing
+      - click "Open and shape it" under the first preview
+      - click "Build the full site"
       - wait up to five minutes until the Publish button appears
       - click Publish
     criteria: a live link to the published site appears together with a box that says "Now cancel Lovable"

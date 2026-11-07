@@ -10,6 +10,31 @@ type ScanLite = { url: string; title: string; builtWith: string | null; images: 
 type Stage = "home" | "reading" | "pick" | "building" | "ready";
 type Msg = { who: "you" | "unslop"; text: string };
 type Mode = "link" | "shot" | "describe";
+/** one direction's real first screen: drawn by /api/mock, shaped in chat, then built into the full page */
+type MockState = { html: string; shown: string; status: "drawing" | "ready" | "error"; error?: string; chat: Msg[]; asks: string[] };
+
+/** reads a newline-JSON stream from /api/mock or /api/build */
+async function readNdjson(res: Response, on: (ev: { t: string; d?: string }) => void) {
+  if (!res.ok || !res.body) { const data = await res.json().catch(() => ({})); throw new Error(data.error ?? "That didn't start"); }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+      if (!line.trim()) continue;
+      const ev = JSON.parse(line);
+      if (ev.t === "error") throw new Error(ev.m);
+      on(ev);
+    }
+  }
+}
+const cleanHtml = (s: string) => s.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
+const SHAPE_CHIPS = ["Make it darker", "Try a different font pairing", "Bigger, bolder headline", "Swap the main color", "Add a pricing section"];
 
 /** reads a picked image and shrinks it to at most 1600 px wide, as a JPEG data URL (keeps uploads small) */
 function readShot(file: File): Promise<string> {
@@ -64,6 +89,46 @@ export default function Unslop() {
   const [published, setPublished] = useState<{ id: string; path: string } | null>(null);
   const [shown, setShown] = useState(""); // the HTML currently in the preview frame (throttled during the build)
   const lastPaint = useRef(0);
+  const [mocks, setMocks] = useState<MockState[]>([]);
+  const [focus, setFocus] = useState<number | null>(null); // the direction opened big, to shape in chat
+  const mockRun = useRef<{ gen: number; aborts: AbortController[] }>({ gen: 0, aborts: [] });
+
+  // draws one direction's first screen, streaming it into its card
+  async function drawOne(a: Analysis, images: string[], i: number) {
+    const gen = mockRun.current.gen;
+    const ctrl = new AbortController();
+    mockRun.current.aborts[i] = ctrl;
+    const patch = (p: Partial<MockState>) => { if (mockRun.current.gen === gen) setMocks((ms) => ms.map((m, k) => (k === i ? { ...m, ...p } : m))); };
+    patch({ html: "", shown: "", status: "drawing", error: undefined });
+    let page = "", last = 0;
+    try {
+      const res = await fetch("/api/mock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ analysis: a, direction: a.directions[i], images }), signal: ctrl.signal });
+      await readNdjson(res, (ev) => {
+        if (ev.t !== "html") return;
+        page += ev.d ?? "";
+        const now = Date.now();
+        const b = page.search(/<body/i);
+        if (b >= 0 && page.length - b > 700 && now - last > 1200) { last = now; patch({ shown: page }); } // wait for some body before showing it
+      });
+      const done = cleanHtml(page);
+      patch({ html: done, shown: done, status: "ready" });
+    } catch (err) {
+      if (ctrl.signal.aborted) return;
+      patch({ status: "error", error: err instanceof Error ? err.message : "Couldn't draw this one" });
+    }
+  }
+  function stopMocks() {
+    mockRun.current.aborts.forEach((c) => c?.abort());
+    mockRun.current = { gen: mockRun.current.gen + 1, aborts: [] };
+  }
+  function drawMocks(a: Analysis, images: string[]) {
+    stopMocks();
+    setFocus(null);
+    setMocks(a.directions.map(() => ({ html: "", shown: "", status: "drawing", chat: [], asks: [] })));
+    a.directions.forEach((_, i) => { drawOne(a, images, i); });
+  }
+  const patchMock = (i: number, p: Partial<MockState> | ((m: MockState) => Partial<MockState>)) =>
+    setMocks((ms) => ms.map((m, k) => (k === i ? { ...m, ...(typeof p === "function" ? p(m) : p) } : m)));
 
   useGoogleFonts(analysis?.directions.flatMap((d) => [d.fonts.display, d.fonts.body]) ?? []);
 
@@ -83,6 +148,7 @@ export default function Unslop() {
     const useShot = !override && mode === "shot";
     if (useShot && !shot) { setError("Pick a screenshot of the site first"); return; }
     if (!useShot && !value) { setError(mode === "link" ? "Paste a link first" : "Describe the site first"); return; }
+    stopMocks(); setMocks([]); setFocus(null);
     setError(""); setStage("reading"); setAnalysis(null); setScan(null); setDirection(null); setHtml(""); setNotes(""); setMsgs([]); setPublished(null); setBeforeImg(useShot ? shot : ""); setServerShot("");
     try {
       const body = useShot ? { image: shot, url: /^\S+\.\S+$/.test(value) ? value : undefined } : override || mode === "link" ? { url: value.startsWith("/") ? origin + value : value } : { brief: value };
@@ -93,48 +159,57 @@ export default function Unslop() {
         throw new Error(data.error ?? "Couldn't read that");
       }
       setScan(data.scan); setServerShot(data.shot ?? ""); setAnalysis(data.analysis); setStage("pick"); setView(data.scan || useShot ? "before" : "after");
+      drawMocks(data.analysis, data.scan?.images ?? []); // the three first screens start drawing right away
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong"); setStage("home");
     }
   }
 
-  async function build(d: Direction) {
+  // builds the full page; from a shaped first screen when there is one (it keeps that screen and the asked-for changes)
+  async function build(d: Direction, from?: MockState) {
     if (!analysis) return;
-    setDirection(d); setStage("building"); setHtml(""); setShown(""); setNotes(""); setView("after"); setPublished(null); lastPaint.current = 0;
-    setMsgs([{ who: "unslop", text: `Building it in ${d.name}. ${d.world}` }]);
+    const mock = from?.status === "ready" ? from : undefined;
+    setDirection(d); setStage("building"); setHtml(""); setShown(mock?.html ?? ""); setNotes(""); setView("after"); setPublished(null); setError(""); lastPaint.current = Date.now();
+    setMsgs([...(mock?.chat ?? []), { who: "unslop", text: mock ? `Building the full ${d.name} site from this first screen${mock.asks.length ? ", with your changes all the way down" : ""}.` : `Building it in ${d.name}. ${d.world}` }]);
+    let page = "";
     try {
-      const res = await fetch("/api/build", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ analysis, direction: d, images: scan?.images ?? [] }) });
-      if (!res.ok || !res.body) { const data = await res.json().catch(() => ({})); throw new Error(data.error ?? "The build didn't start"); }
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = "", page = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let nl;
-        while ((nl = buf.indexOf("\n")) >= 0) {
-          const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
-          if (!line.trim()) continue;
-          const ev = JSON.parse(line);
-          if (ev.t === "think") setNotes((n) => (n + ev.d).slice(-1800));
-          else if (ev.t === "html") { page += ev.d; setHtml(page); }
-          else if (ev.t === "error") throw new Error(ev.m);
-        }
-      }
-      const clean = page.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
+      const res = await fetch("/api/build", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ analysis, direction: d, images: scan?.images ?? [], mock: mock?.html, asks: mock?.asks }) });
+      await readNdjson(res, (ev) => {
+        if (ev.t === "think") setNotes((n) => (n + (ev.d ?? "")).slice(-1800));
+        else if (ev.t === "html") { page += ev.d ?? ""; setHtml(page); }
+      });
+      const clean = cleanHtml(page);
       setHtml(clean); setShown(clean); setStage("ready");
       setMsgs((m) => [...m, { who: "unslop", text: "Done. Ask for any change, or publish it." }]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The build failed"); setStage(html ? "ready" : "pick");
+      setError(err instanceof Error ? err.message : "The build failed");
+      if (page) { setHtml(cleanHtml(page)); setShown(cleanHtml(page)); setStage("ready"); } else setStage("pick");
     }
   }
 
-  async function edit(e: React.FormEvent) {
-    e.preventDefault();
-    const q = ask.trim();
+  // a chat change to the first screen that's open big (before the full build)
+  async function shapeMock(i: number, q: string) {
+    const m = mocks[i];
+    if (!m || m.status !== "ready" || !analysis) return;
+    setBusy(true);
+    patchMock(i, (x) => ({ chat: [...x.chat, { who: "you", text: q }] }));
+    try {
+      const res = await fetch("/api/edit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ html: m.html, ask: q, direction: analysis.directions[i] }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "That change failed");
+      patchMock(i, (x) => ({ html: data.html, shown: data.html, asks: [...x.asks, q], chat: [...x.chat, { who: "unslop", text: data.reply + (data.missed ? ` (${data.missed} part${data.missed > 1 ? "s" : ""} didn't apply, ask again if something's missing.)` : "") }] }));
+    } catch (err) {
+      patchMock(i, (x) => ({ chat: [...x.chat, { who: "unslop", text: err instanceof Error ? err.message : "That change failed" }] }));
+    } finally { setBusy(false); }
+  }
+
+  async function edit(e?: React.FormEvent, chip?: string) {
+    e?.preventDefault();
+    const q = (chip ?? ask).trim();
     if (!q || busy) return;
-    setAsk(""); setBusy(true); setMsgs((m) => [...m, { who: "you", text: q }]);
+    setAsk("");
+    if (stage === "pick" && focus !== null) { await shapeMock(focus, q); return; }
+    setBusy(true); setMsgs((m) => [...m, { who: "you", text: q }]);
     try {
       const res = await fetch("/api/edit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ html, ask: q, direction }) });
       const data = await res.json();
@@ -175,13 +250,15 @@ export default function Unslop() {
   const hasBefore = Boolean(scan || beforeImg);
   const grade = analysis ? gradeOf(analysis.score) : null;
   const beforeView = beforeImg ? <img src={beforeImg} alt="Your screenshot of the site" /> : scan ? <Before url={scan.url} alt={`The current ${analysis?.site.name ?? ""} site`} fallback={serverShot} frameable={scan.frameable !== false} /> : null;
+  const shaping = stage === "pick" && focus !== null && mocks[focus] ? mocks[focus] : null;
+  const chatMsgs = shaping ? shaping.chat : msgs;
 
   return (
     <main className="studio">
       <div className="world" aria-hidden />
       <div className="window">
         <header className="bar">
-          <button className="wordmark" onClick={() => setStage("home")} aria-label={`${BRAND.name} home`}>{BRAND.logo ? <img src={BRAND.logo} alt={BRAND.name} className="logoimg" /> : BRAND.mark}</button>
+          <button className="wordmark" onClick={() => { stopMocks(); setStage("home"); }} aria-label={`${BRAND.name} home`}>{BRAND.logo ? <img src={BRAND.logo} alt={BRAND.name} className="logoimg" /> : BRAND.mark}</button>
           <span className="chip mono">{scan ? scan.url.replace(/^https?:\/\//, "").replace(/\/$/, "") : beforeImg ? "your screenshot" : "new site"}</span>
           {analysis && grade && hasBefore && <span className={`chip score ${grade.tone}`}>{analysis.score}% slop{scan?.builtWith ? `, made with ${scan.builtWith}` : ""}</span>}
           <span className="grow" />
@@ -208,19 +285,24 @@ export default function Unslop() {
               </div>
             </section>
           )}
-          {(stage === "building" || stage === "ready") && (
+          {(stage === "building" || stage === "ready" || shaping) && (
             <section className="chat">
-              <h3>{stage === "building" ? "Building live" : "Change anything"}</h3>
+              <h3>{stage === "building" ? "Building live" : shaping ? `Shape ${analysis?.directions[focus!].name ?? "it"}` : "Change anything"}</h3>
+              {shaping && chatMsgs.length === 0 && <p className="muted">Change anything before the full build: colors, fonts, the headline, the layout, whole components. Everything you ask for carries into the full site.</p>}
               <div className="msgs">
-                {msgs.map((m, i) => <p key={i} className={m.who}>{m.text}</p>)}
+                {chatMsgs.map((m, i) => <p key={i} className={m.who}>{m.text}</p>)}
+                {busy && shaping && <p className="notes">Changing it...</p>}
                 {stage === "building" && <p className="notes">{notes ? notes.slice(-420) : "Laying out the world first..."}</p>}
                 {stage === "building" && <p className="progress mono">{lines} lines written</p>}
               </div>
-              {stage === "ready" && (
-                <form onSubmit={edit} className="ask">
-                  <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Make the hero bigger, swap the CTA, add pricing..." aria-label="Ask for a change" />
-                  <button className="primary" disabled={busy || !ask.trim()}>{busy ? "..." : "Send"}</button>
-                </form>
+              {(stage === "ready" || shaping) && (
+                <>
+                  {shaping && shaping.status === "ready" && <div className="askchips">{SHAPE_CHIPS.map((c) => <button key={c} type="button" onClick={() => edit(undefined, c)} disabled={busy}>{c}</button>)}</div>}
+                  <form onSubmit={edit} className="ask">
+                    <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={shaping ? (shaping.status === "ready" ? "Make the background navy, use a serif, add a menu..." : "Wait for it to finish drawing...") : "Make the hero bigger, swap the CTA, add pricing..."} aria-label="Ask for a change" disabled={!!shaping && shaping.status !== "ready"} />
+                    <button className="primary" disabled={busy || !ask.trim() || (!!shaping && shaping.status !== "ready")}>{busy ? "..." : "Send"}</button>
+                  </form>
+                </>
               )}
             </section>
           )}
@@ -263,11 +345,27 @@ export default function Unslop() {
         </aside>
 
         <section className="canvas">
-          {stage === "pick" && analysis && view === "after" && (
+          {stage === "pick" && analysis && view === "after" && focus === null && (
             <div className="directions">
-              <h2>Pick a direction</h2>
-              <div className="cards">
-                {analysis.directions.map((d, i) => <DirectionCard key={i} d={d} onPick={() => build(d)} />)}
+              <h2>Three real directions</h2>
+              <p className="dlede">Each one is the actual first screen, drawn for {analysis.site.name}. Open one to look closer and change anything, then build it.</p>
+              <div className="mocks">
+                {analysis.directions.map((d, i) => <MockCard key={i} d={d} m={mocks[i]} onOpen={() => setFocus(i)} onRetry={() => drawOne(analysis, scan?.images ?? [], i)} />)}
+              </div>
+            </div>
+          )}
+          {stage === "pick" && analysis && view === "after" && focus !== null && mocks[focus] && (
+            <div className="shape">
+              <div className="shapebar">
+                <button className="ghost" onClick={() => setFocus(null)}>All three</button>
+                <span className="shapename"><b>{analysis.directions[focus].name}</b><span className="mono">{analysis.directions[focus].fonts.display} + {analysis.directions[focus].fonts.body}</span></span>
+                <span className="grow" />
+                <button className="primary" onClick={() => build(analysis.directions[focus], mocks[focus])} disabled={busy}>Build the full site</button>
+              </div>
+              <div className="shapeview">
+                {mocks[focus].shown ? <MockFrame html={mocks[focus].shown} title={`${analysis.directions[focus].name}, first screen`} tall /> : <div className="blank"><p>Drawing the first screen...</p></div>}
+                {mocks[focus].status === "drawing" && <span className="drawing mono">drawing it live</span>}
+                {mocks[focus].status === "error" && <div className="blank"><p>{mocks[focus].error}</p><button className="ghost" onClick={() => drawOne(analysis, scan?.images ?? [], focus)}>Draw it again</button></div>}
               </div>
             </div>
           )}
@@ -327,18 +425,57 @@ function Before({ url, alt, fallback = "", frameable = true }: { url: string; al
   );
 }
 
-function DirectionCard({ d, onPick }: { d: Direction; onPick: () => void }) {
+/* a 1440-wide page shown at the width of its box (the preview is a real page, scaled, never re-laid out) */
+function MockFrame({ html, title, tall }: { html: string; title: string; tall?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setBox({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // two frames: a new version loads in the hidden one and only then swaps in, so a change never flashes white
+  const [slots, setSlots] = useState<[string, string]>([html, ""]);
+  const [vis, setVis] = useState(0);
+  useEffect(() => {
+    if (html === slots[vis]) return;
+    setSlots((sl) => { const n: [string, string] = [sl[0], sl[1]]; n[1 - vis] = html; return n; });
+  }, [html]); // eslint-disable-line react-hooks/exhaustive-deps
+  const s = box.w / 1440;
+  return (
+    <div ref={ref} className={`mockframe${tall ? " tall" : ""}`}>
+      {s > 0 && slots.map((doc, i) => doc && (
+        <iframe key={i} title={i === vis ? title : `${title} (loading)`} srcDoc={doc} sandbox="" tabIndex={tall && i === vis ? 0 : -1} aria-hidden={i !== vis}
+          onLoad={() => { if (i !== vis && doc === html) setVis(i); }}
+          style={{ width: 1440, height: tall ? Math.max(900, box.h / s) : 900, transform: `scale(${s})`, opacity: i === vis ? 1 : 0, zIndex: i === vis ? 1 : 0 }} />
+      ))}
+    </div>
+  );
+}
+
+/* one direction: its real first screen (streaming in), or the direction card while it draws */
+function MockCard({ d, m, onOpen, onRetry }: { d: Direction; m?: MockState; onOpen: () => void; onRetry: () => void }) {
   const p = d.palette;
   return (
-    <button className="dcard" onClick={onPick} style={{ background: p.ground, color: p.ink }}>
-      <span className="dname" style={{ fontFamily: `'${d.fonts.body}', sans-serif` }}>{d.name}</span>
-      <span className="dhead" style={{ fontFamily: `'${d.fonts.display}', serif` }}>{d.headline}</span>
-      <span className="dsub" style={{ fontFamily: `'${d.fonts.body}', sans-serif` }}>{d.subline}</span>
-      <span className="dcta" style={{ background: p.accent, color: d.dark ? p.ground : "#fff", fontFamily: `'${d.fonts.body}', sans-serif` }}>{d.cta}</span>
-      <span className="dworld" style={{ fontFamily: `'${d.fonts.body}', sans-serif` }}>{d.world}</span>
-      <span className="dswatches">{[p.ground, p.surface, p.ink, p.accent, p.accent2].map((c, i) => <i key={i} style={{ background: c }} />)}</span>
-      <span className="dfonts mono">{d.fonts.display} + {d.fonts.body}</span>
-    </button>
+    <div className="mock">
+      <div className="mockshot" role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }} aria-label={`Open ${d.name}`} style={{ background: p.ground, color: p.ink }}>
+        {m?.shown ? <MockFrame html={m.shown} title={`${d.name}, first screen`} /> : (
+          <span className="mockwait">
+            <span className="dhead" style={{ fontFamily: `'${d.fonts.display}', serif` }}>{d.headline}</span>
+            <span className="dcta" style={{ background: p.accent, color: d.dark ? p.ground : "#fff", fontFamily: `'${d.fonts.body}', sans-serif` }}>{d.cta}</span>
+          </span>
+        )}
+        {m?.status === "drawing" && <span className="drawing mono">{m.shown ? "drawing it live" : "drawing the first screen"}</span>}
+      </div>
+      <div className="mockinfo">
+        <b>{d.name}</b>
+        <span>{d.why}</span>
+        <span className="mockmeta"><span className="dswatches">{[p.ground, p.surface, p.ink, p.accent, p.accent2].map((c, i) => <i key={i} style={{ background: c }} />)}</span><span className="dfonts mono">{d.fonts.display} + {d.fonts.body}</span></span>
+        {m?.status === "error" ? <span className="mockerr">{m.error} <button className="ghost" onClick={onRetry}>Draw it again</button></span> : <button className="ghost" onClick={onOpen}>Open and shape it</button>}
+      </div>
+    </div>
   );
 }
 

@@ -258,3 +258,38 @@ a { color: inherit; }
 .logoimg.big { height: clamp(64px, 8vw, 96px); margin: 0 auto; }
 .nopreview { height: 100%; min-height: 320px; display: grid; place-content: center; justify-items: center; gap: 16px; padding: 32px; text-align: center; background: var(--paper); }
 .nopreview p { max-width: 380px; font-size: 17px; line-height: 1.45; color: var(--grey); margin: 0; }
+
+/* the three real first screens */
+.dlede { margin: -8px 0 20px; max-width: 720px; color: var(--grey); font-size: 16px; line-height: 1.45; }
+.mocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; align-items: start; }
+.mock { display: grid; gap: 14px; }
+.mockshot { position: relative; display: block; width: 100%; border-radius: 18px; overflow: hidden; cursor: pointer; aspect-ratio: 1440 / 900; box-shadow: 0 30px 60px -35px rgba(0, 0, 0, 0.6), 0 0 0 1.5px rgba(0, 0, 0, 0.06); transition: transform 0.25s cubic-bezier(0.3, 0.7, 0.2, 1), box-shadow 0.25s; }
+.mockshot:hover, .mockshot:focus-visible { outline: 0; transform: translateY(-5px); box-shadow: 0 40px 70px -35px rgba(0, 0, 0, 0.65), 0 0 0 3px var(--cobalt); }
+.mockwait { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; padding: 22px; text-align: left; }
+.mockwait .dhead { font-size: 24px; animation: breathe 1.6s ease-in-out infinite alternate; }
+@keyframes breathe { from { opacity: 0.55; } to { opacity: 1; } }
+.drawing { position: absolute; left: 12px; bottom: 12px; z-index: 2; padding: 6px 12px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12.5px; display: inline-flex; align-items: center; gap: 8px; }
+.drawing::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); animation: breathe 0.7s ease-in-out infinite alternate; }
+.mockinfo { display: grid; gap: 6px; justify-items: start; }
+.mockinfo b { font-family: var(--display); font-size: 21px; letter-spacing: -0.02em; }
+.mockinfo > span { font-size: 14.5px; line-height: 1.4; color: var(--grey); }
+.mockmeta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mockinfo .ghost { margin-top: 4px; }
+.mockerr { color: #b3261e !important; }
+.mockframe { position: relative; width: 100%; aspect-ratio: 1440 / 900; overflow: hidden; background: transparent; }
+.mockframe.tall { aspect-ratio: auto; height: 100%; }
+.mockframe iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; background: transparent; pointer-events: none; }
+.mockframe.tall iframe { pointer-events: auto; }
+.shapeview .mockframe { background: var(--paper); }
+.shape { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+.shapebar { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: var(--paper); border-bottom: 1.5px solid var(--line); }
+.shapename { display: grid; line-height: 1.2; }
+.shapename b { font-family: var(--display); font-size: 19px; letter-spacing: -0.02em; }
+.shapename span { font-size: 12.5px; color: var(--grey); }
+.shapeview { position: relative; min-height: 0; overflow: hidden; }
+.shapeview .blank { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; background: var(--paper); }
+.askchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.askchips button { padding: 7px 12px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--line); font-size: 13.5px; font-weight: 600; }
+.askchips button:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px var(--cobalt); color: var(--cobalt); }
+.askchips button:disabled { opacity: 0.5; }
+@media (max-width: 900px) { .shapebar { flex-wrap: wrap; } .shapeview { min-height: 70vh; } }
