@@ -3,6 +3,7 @@
 //   powershell -File seldon.ps1 run [name]        spends 1 simulation per test case
 //   powershell -File seldon.ps1 report <runId>    the per-case verdicts
 //   powershell -File seldon.ps1 summary <runId>   the narrative summary
+//   powershell -File seldon.ps1 save <runId> [file]  the full report as JSON
 //   powershell -File seldon.ps1 status|wait <runId>  progress, or wait until it finishes
 import fs from "node:fs";
 
@@ -22,6 +23,7 @@ if (cmd === "validate") console.log(JSON.stringify(await call("POST", "/code-tes
 else if (cmd === "run") console.log(JSON.stringify(await call("POST", "/code-tests/run", { seldon_yaml: yaml, lineage_key: "unslop", run_name: arg ?? "unslop run" }), null, 1));
 else if (cmd === "status") { const r = await call("GET", `/experiments/${arg}/progress`); console.log(JSON.stringify(r.json, null, 1).slice(0, 3000)); }
 else if (cmd === "report") { const r = await call("GET", `/experiments/${arg}/qa-report`); console.log(JSON.stringify(r.json, null, 1).slice(0, 20000)); }
+else if (cmd === "save") { const r = await call("GET", `/experiments/${arg}/qa-report`); fs.writeFileSync(process.argv[4] ?? `seldon-${arg}.json`, JSON.stringify(r.json, null, 1)); console.log("saved", r.status); }
 else if (cmd === "summary") { const r = await call("GET", `/experiments/${arg}/summary`); console.log(JSON.stringify(r.json, null, 1).slice(0, 12000)); }
 else if (cmd === "wait") { for (let i = 0; i < 80; i++) { const r = await call("GET", `/experiments/${arg}`); const st = r.json?.status ?? r.json?.experiment?.status; if (i % 4 === 0) console.log(new Date().toLocaleTimeString(), st); if (/complet|fail|cancel|timeout/i.test(String(st))) { console.log("final", st); break; } await new Promise((res) => setTimeout(res, 30000)); } }
 else console.log("usage: validate | run [name] | status|wait|report|summary <id>");

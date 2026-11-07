@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vaultly | The Future of Saving</title>
+<meta name="description" content="Vaultly is a savings app with 4.10% APY on balances up to $50,000, no monthly fees and round-ups from your debit card.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<!-- A deliberately typical AI-builder landing page, used as a DSlop demo. Vaultly and Cedar Bank are made up. -->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: #e2e8f0; background: #070b1f; }
+  nav { display: flex; justify-content: space-between; align-items: center; padding: 18px 48px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  nav b { font-size: 22px; color: #fff; } nav a { margin-left: 24px; color: #94a3b8; text-decoration: none; font-size: 15px; }
+  .hero { position: relative; overflow: hidden; text-align: center; padding: 130px 24px 150px; background: radial-gradient(60% 60% at 50% 30%, rgba(99,102,241,.45), transparent 70%), #070b1f; }
+  .blob { position: absolute; width: 420px; height: 420px; border-radius: 50%; filter: blur(90px); opacity: .55; }
+  .eyebrow { display: inline-block; padding: 6px 16px; border-radius: 999px; background: rgba(129,140,248,.15); border: 1px solid rgba(129,140,248,.4); color: #a5b4fc; font-size: 13px; font-weight: 600; }
+  h1 { position: relative; font-size: 66px; line-height: 1.05; font-weight: 800; letter-spacing: -0.03em; max-width: 920px; margin: 22px auto; background: linear-gradient(90deg, #fff, #a5b4fc 50%, #f0abfc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p { position: relative; font-size: 21px; color: #94a3b8; max-width: 640px; margin: 0 auto 36px; }
+  .btn { position: relative; display: inline-block; padding: 14px 28px; border-radius: 12px; font-weight: 600; text-decoration: none; margin: 0 6px; }
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #d946ef); color: #fff; box-shadow: 0 0 40px rgba(168,85,247,.6); } .btn-ghost { border: 1px solid rgba(255,255,255,.25); color: #fff; }
+  .features { max-width: 1100px; margin: 0 auto; padding: 100px 24px; text-align: center; }
+  .features h2 { font-size: 40px; margin: 12px 0 50px; color: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .card { padding: 32px; border-radius: 20px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 0 30px rgba(99,102,241,.25); text-align: left; backdrop-filter: blur(16px); }
+  .icon { width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, #6366f1, #d946ef); box-shadow: 0 0 24px rgba(217,70,239,.6); }
+  .card h3 { font-size: 22px; margin: 22px 0 8px; color: #fff; } .card p { color: #94a3b8; line-height: 1.6; margin: 0; }
+  .stats { display: flex; justify-content: center; gap: 80px; padding: 60px 24px; border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(255,255,255,.08); }
+  .stats b { display: block; font-size: 44px; color: #c4b5fd; text-shadow: 0 0 20px rgba(196,181,253,.6); } .stats span { color: #94a3b8; }
+  .cta { margin: 100px auto; max-width: 900px; padding: 70px 24px; border-radius: 24px; text-align: center; color: #fff; background: linear-gradient(135deg, rgba(99,102,241,.35), rgba(217,70,239,.35)); border: 1px solid rgba(255,255,255,.15); backdrop-filter: blur(16px); }
+  footer { text-align: center; padding: 40px; color: #64748b; font-size: 14px; line-height: 1.7; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 40px; } .stats { flex-direction: column; gap: 24px; } nav a { display: none; } }
+</style>
+</head>
+<body>
+<nav class="sticky top-0 backdrop-blur"><b>Vaultly</b><span><a href="#">Features</a><a href="#">Security</a><a href="#">FAQ</a><a class="btn btn-primary" href="#">Get Started</a></span></nav>
+<section class="hero">
+  <i class="blob" style="left:-80px;top:40px;background:#6366f1"></i><i class="blob" style="right:-60px;top:120px;background:#d946ef"></i>
+  <span class="eyebrow uppercase tracking-wider">🚀 AI-Powered Savings</span>
+  <h1>The Future of Saving Is Here. Unlock Financial Freedom.</h1>
+  <p>Vaultly empowers you to supercharge your savings with cutting-edge AI — seamlessly. Revolutionize the way you grow your money.</p>
+  <a class="btn btn-primary" href="#">Get Started</a><a class="btn btn-ghost" href="#">Learn More</a>
+</section>
+<section class="features">
+  <span class="eyebrow uppercase tracking-wider">FEATURES</span>
+  <h2>Banking, Reimagined For You</h2>
+  <div class="grid md:grid-cols-3">
+    <div class="card"><div class="icon"></div><h3>⚡ Smart Round-Ups</h3><p>Every debit card purchase rounds up to the next dollar and lands in savings — automatically.</p></div>
+    <div class="card"><div class="icon"></div><h3>🔒 Bank-Grade Security</h3><p>FDIC insured up to $250,000 through Cedar Bank, Member FDIC. Next-gen encryption everywhere.</p></div>
+    <div class="card"><div class="icon"></div><h3>📈 4.10% APY</h3><p>Earn 4.10% APY on balances up to $50,000. Rate is variable. No monthly fees, ever.</p></div>
+  </div>
+</section>
+<section class="stats"><div><b>$2B+</b><span>Saved by members</span></div><div><b>1M+</b><span>Happy savers</span></div><div><b>4.9★</b><span>App Store rating</span></div></section>
+<section class="cta"><h2 style="font-size:40px;margin:0 0 14px">Ready to Elevate Your Savings?</h2><p style="font-size:19px;color:#cbd5e1;margin:0 0 30px">Join the financial revolution today. Available on iOS and Android.</p><a class="btn btn-primary" href="#">Get Started Free</a></section>
+<footer>© 2026 Vaultly. Vaultly is not a bank. Banking services by Cedar Bank, Member FDIC. 4.10% APY on balances up to $50,000; rate is variable.</footer>
+</body>
+</html>

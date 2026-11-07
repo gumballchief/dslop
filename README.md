@@ -46,8 +46,17 @@ two core workflows are written as code in [app/seldon.yml](app/seldon.yml):
 - **A redesign is built live and published, then you can cancel Lovable.** Pick a direction, wait for the live build,
   publish, and a live link must appear with the "Now cancel Lovable" box.
 
-[seldon.mjs](seldon.mjs) runs them through Seldon's REST API (validate, run, wait, report). Both workflows passed on
-the first build, and were re-run against the final build at dslop.vercel.app.
+[seldon.mjs](seldon.mjs) runs them through Seldon's REST API (validate, run, wait, report, save).
+
+Final run, November 7, 2026, against the final build at https://dslop.vercel.app (experiment
+`00395cca-5c5b-4af9-93b7-93e4bb8b1695`): **2 of 2 passed.**
+
+| Workflow | Verdict | What Seldon's agent saw |
+| --- | --- | --- |
+| A pasted site gets its AI tells named | PASS | The site name Relay, a "92% slop" badge, and a list of tells led by "Purple to pink gradient" |
+| A redesign is built live and published, then you can cancel Lovable | PASS | "It's live" with a live link on dslop.vercel.app/s/..., and the "Now cancel Lovable." box with its billing button |
+
+Both workflows had also passed on the first build earlier in the day.
 
 ## Stack
 
@@ -64,6 +73,9 @@ cd app
 npm install
 ANTHROPIC_API_KEY=your-key npm run dev
 ```
+
+Three made-up sample sites live in `app/public/samples` (Relay, Bloomly, Vaultly), each built to look AI-made on
+purpose, so there is always something to test against.
 
 Published pages go to Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set, and to a local temp folder when it isn't.
 Edit [TASTE.md](TASTE.md), then run `node scripts/taste.mjs` inside `app` to rebuild the prompt file.
