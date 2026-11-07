@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     "/api/analyze": ["./node_modules/@sparticuz/chromium/bin/**/*"],
     "/api/health": ["./node_modules/@sparticuz/chromium/bin/**/*"],
     "/api/directions": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/polish": ["./node_modules/@sparticuz/chromium/bin/**/*"],
   },
 };
 

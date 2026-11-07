@@ -105,9 +105,8 @@ export async function scanSite(input: string): Promise<Scan> {
   const visible = lines.join(" ");
 
   const images = [...new Set([
-    root.querySelector('meta[property="og:image"]')?.getAttribute("content") ?? "",
     ...root.querySelectorAll("img").map((i) => i.getAttribute("src") ?? i.getAttribute("data-src") ?? ""),
-  ].map(abs).filter((s) => s && !/\.svg($|\?)|icon|logo-?small|pixel|tracking|1x1|data:/i.test(s)))].slice(0, 16);
+  ].map(abs).filter((s) => s && !/\.svg($|\?)|icon|logo-?small|pixel|tracking|1x1|data:|og[-_]?image|opengraph|social|share[-_]|twitter[-_]?card|screenshot/i.test(s)))].slice(0, 16);
 
   const fontFamilies = [...css.matchAll(/font-family\s*:\s*([^;}{]+)/gi)].map((m) => m[1].split(",")[0].replace(/["']/g, "").trim());
   const gFonts = [...html.matchAll(/fonts\.googleapis\.com\/css2?\?family=([^"'&]+)/g)].map((m) => decodeURIComponent(m[1]).split(":")[0].replace(/\+/g, " "));

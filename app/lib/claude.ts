@@ -179,6 +179,10 @@ Hard rules:
 - Structure: a hero that shows the real thing or the world, then 5 to 8 sections with different layouts, a strong closing call to action, and a footer. Roughly 8 to 10 screens tall on desktop.
 - Motion: one element is always alive (the world or the signature object); sections reveal as they enter (IntersectionObserver or GSAP ScrollTrigger); nothing zooms into photos. Respect prefers-reduced-motion.
 - Works at 375px wide with no horizontal scroll. Buttons are real links (#sections or mailto/tel from the facts).
+- Never put a screenshot of the old site in the new page. An image with words baked into it is never cropped, rotated or shrunk until its words are cut off or unreadable.
+- Device frames (phones, laptops, browser windows): build what is on the screen in HTML and CSS, sized to fit the frame, with text you can read; never fill a device with an image of a page.
+- Nothing ever covers text: decorative objects, devices and cards sit beside the headline or behind it only where every word stays fully readable.
+- No text is ever clipped or cut off by its box. Tables and number lists: a header row, aligned columns, numbers right-aligned, no wrapping inside cells, and the table fits its box (on phones it scrolls sideways inside its own box).
 - Write the CSS in a <style> in the head first, then the body, then one <script> at the end. Keep the whole file under 1300 lines.`;
 
 const MOCK_RULES = `You are DSlop's designer. Draw the FIRST SCREEN of this site's new landing page in the chosen direction, so the person can see the real look before the full page is built: the nav and the complete hero at 1440 by 900, with the top of the next section just peeking in at the bottom edge.
@@ -192,7 +196,11 @@ Hard rules:
 - Keep real facts only. Never invent numbers, customers, reviews or awards.
 - Follow the direction exactly: its world, palette, fonts, signature, headline, subline and CTA. This screen must already be unmistakably this direction and nothing like the other two.
 - Banned: em dashes and en dashes, eyebrow pill labels over headings, numbered labels, purple or pink gradients, glow and neon, glassmorphism, and the words elevate, supercharge, unleash, seamless, transform, empower, next-gen, cutting-edge, revolutionize, effortless.
-- The hero fills 100vh with a min-height of 760px. It must also hold up at 375px wide.`;
+- The hero fills 100vh with a min-height of 760px. It must also hold up at 375px wide.
+- Never put a screenshot of the old site in the new page. An image with words baked into it is never cropped, rotated or shrunk until its words are cut off or unreadable.
+- Device frames (phones, laptops, browser windows): build what is on the screen in HTML and CSS, sized to fit the frame, with text you can read; never fill a device with an image of a page.
+- Nothing ever covers text: decorative objects, devices and cards sit beside the headline or behind it only where every word stays fully readable.
+- No text is ever clipped or cut off by its box. Tables and number lists: a header row, aligned columns, numbers right-aligned, no wrapping inside cells, and the table fits its box (on phones it scrolls sideways inside its own box).`;
 
 function pageStream(rules: string, content: string | Anthropic.Beta.BetaContentBlockParam[], fast: boolean, maxTokens: number) {
   return client().beta.messages.stream({
@@ -251,5 +259,19 @@ export async function editPage(html: string, ask: string, direction: Direction |
     messages: [{ role: "user", content: `Current file:\n\n${html}\n\nRequest: ${ask}` }],
   });
   if (!res.parsed_output) throw new Error("The edit came back incomplete, try again");
+  return res.parsed_output;
+}
+
+/* ───────── 4. the polish pass: fix the small layout problems Chrome found (lib/qa.ts) ───────── */
+
+export async function polishPage(html: string, issues: { size: string; kind: string; where: string }[]): Promise<Edits> {
+  const res = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 16000,
+    output_config: { effort: "low", format: zodOutputFormat(Edits) },
+    system: [{ type: "text", text: `You polish a finished landing page. Chrome opened it at desktop (1440 wide) and phone (390 wide) sizes and found the layout problems listed. Fix each one with the smallest change that solves it, almost always CSS (sizes, wrapping, positions, z-index, overflow, a media query for phones). Keep the design exactly: same colors, fonts, words, layout idea and motion. Where a device frame or card shows a page screenshot whose words are cut off, replace that image with the same idea built in HTML and CSS that fits. Return exact find/replace edits against the current file (each find must appear in it exactly once). In the reply, say in one short plain sentence what you fixed. Never use em dashes.` }],
+    messages: [{ role: "user", content: `Problems found:\n${issues.map((i) => `- [${i.size}] ${i.kind}: ${i.where}`).join("\n")}\n\nCurrent file:\n\n${html}` }],
+  });
+  if (!res.parsed_output) throw new Error("The polish came back incomplete");
   return res.parsed_output;
 }

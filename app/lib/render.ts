@@ -22,7 +22,7 @@ const LOCAL_CHROME = [
   "/usr/bin/google-chrome",
 ].filter(Boolean) as string[];
 
-async function launch(): Promise<Browser> {
+export async function launch(): Promise<Browser> {
   const puppeteer = (await import("puppeteer-core")).default;
   if (process.env.VERCEL) {
     const chromium = (await import("@sparticuz/chromium")).default;

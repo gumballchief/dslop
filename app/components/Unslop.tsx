@@ -96,6 +96,7 @@ export default function Unslop() {
   const [published, setPublished] = useState<{ id: string; path: string } | null>(null);
   const [shown, setShown] = useState(""); // the HTML currently in the preview frame (throttled during the build)
   const [buildFrom, setBuildFrom] = useState(""); // the approved first screen the build started from (for the deslopping scene)
+  const [polishing, setPolishing] = useState(false); // the polish pass after the build (Chrome checks the layout, Claude fixes it)
   const lastPaint = useRef(0);
   const [mocks, setMocks] = useState<MockState[]>([]);
   const [focus, setFocus] = useState<number | null>(null); // the direction opened big, to shape in chat
@@ -233,9 +234,18 @@ export default function Unslop() {
         if (ev.t === "think") setNotes((n) => (n + (ev.d ?? "")).slice(-1800));
         else if (ev.t === "html") { page += ev.d ?? ""; setHtml(page); }
       });
-      const clean = cleanHtml(page);
+      let clean = cleanHtml(page);
+      setHtml(clean); setPolishing(true);
+      let polished = "";
+      try {
+        // Chrome opens the finished page at desktop and phone size; anything cut off, covered or spilling gets fixed
+        const r = await fetch("/api/polish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ html: clean }) });
+        const pd = await r.json();
+        if (r.ok && typeof pd.html === "string" && pd.html.length > 200) { clean = pd.html; if (pd.fixed) polished = `Polished it: ${pd.reply || `fixed ${pd.fixed} small layout things`}`; }
+      } catch { /* the page ships as written */ }
+      setPolishing(false);
       setHtml(clean); setShown(clean); setStage("ready");
-      setMsgs((m) => [...m, { who: "unslop", text: "Done. Ask for any change, or publish it." }]);
+      setMsgs((m) => [...m, ...(polished ? [{ who: "unslop" as const, text: polished }] : []), { who: "unslop", text: "Done. Ask for any change, or publish it." }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "The build failed");
       if (page) { setHtml(cleanHtml(page)); setShown(cleanHtml(page)); setStage("ready"); } else setStage("pick");
@@ -363,7 +373,7 @@ export default function Unslop() {
                 {chatMsgs.map((m, i) => <p key={i} className={m.who}>{m.text}</p>)}
                 {busy && shaping && <p className="notes">Changing it...</p>}
                 {stage === "building" && <p className="notes">{notes ? notes.slice(-420) : "Laying out the world first..."}</p>}
-                {stage === "building" && <p className="progress mono">{buildPhase(html).label}</p>}
+                {stage === "building" && <p className="progress mono">{polishing ? "Polishing the small things" : buildPhase(html).label}</p>}
               </div>
               {(stage === "ready" || shaping) && (
                 <>
@@ -472,7 +482,7 @@ export default function Unslop() {
           {(stage === "building" || stage === "ready") && (
             <div className="preview">
               {stage === "building" && direction && analysis && (
-                <Deslopping name={analysis.site.name} before={beforeImg || serverShot} after={buildFrom} palette={direction.palette} tells={analysis.tells.map((t) => t.label)} html={html} />
+                <Deslopping name={analysis.site.name} before={beforeImg || serverShot} after={buildFrom} palette={direction.palette} tells={analysis.tells.map((t) => t.label)} html={html} polishing={polishing} />
               )}
               {stage === "ready" && hasBefore && <div className="toggle"><button className={view === "before" ? "on" : ""} onClick={() => setView("before")}>Before</button><button className={view === "after" ? "on" : ""} onClick={() => setView("after")}>After</button></div>}
               {stage === "building" ? null : view === "after" ? (shown ? <iframe title="The unslopped site" srcDoc={previewDoc(shown)} sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" /> : <div className="blank"><p>The world goes in first, then the words.</p></div>) : <div className="before">{beforeView}</div>}
@@ -500,8 +510,8 @@ function buildPhase(html: string): { step: number; label: string; pct: number } 
 
 /* while the full site is written: a big sign over a site getting deslopped. The real "before" page is wiped away
    by the approved first screen, and the real tells get struck off as the line passes them. */
-function Deslopping({ name, before, after, palette, tells, html }: { name: string; before: string; after: string; palette: Direction["palette"]; tells: string[]; html: string }) {
-  const phase = buildPhase(html);
+function Deslopping({ name, before, after, palette, tells, html, polishing }: { name: string; before: string; after: string; palette: Direction["palette"]; tells: string[]; html: string; polishing?: boolean }) {
+  const phase = polishing ? { step: 4, label: "Polishing the small things", pct: 98 } : buildPhase(html);
   const chips = tells.slice(0, 5);
   return (
     <div className="deslop" style={{ background: palette.ground }} role="status" aria-live="polite">
