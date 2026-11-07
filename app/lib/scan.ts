@@ -1,6 +1,7 @@
 // Reads a live site and finds the AI tells that can be proven from its HTML and CSS.
 // The judgment calls (is this hero generic? is the copy filler?) are left to Claude in /api/analyze.
 import { parse, HTMLElement } from "node-html-parser";
+import { renderPage } from "./render";
 
 export type Signal = { id: string; label: string; evidence: string; severity: "loud" | "quiet" };
 export type Scan = {
@@ -15,6 +16,9 @@ export type Scan = {
   signals: Signal[];
   thin: boolean; // the HTML carried little text (an app that draws itself with JavaScript)
   frameable: boolean; // the site lets itself be shown inside another page (no X-Frame-Options / frame-ancestors)
+  rendered: boolean; // read in real Chrome (text after JavaScript, computed styles), not just the raw HTML
+  shot: string | null; // the first screen as base64 JPEG, from that render
+  pageShot: string | null; // the page as a JPEG data URL, for the before view
 };
 
 /** The site refused an automated reader (bot protection). We respect that and ask for a screenshot instead. */
@@ -34,7 +38,9 @@ async function get(url: string, ms: number, max = 600_000, meta?: { headers?: He
 export function normalizeUrl(input: string): string {
   let u = input.trim();
   if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-  const parsed = new URL(u); // throws on nonsense
+  let parsed: URL;
+  try { parsed = new URL(u); } catch { throw new Error("That doesn't look like a web address"); }
+  if (/\s/.test(input.trim())) throw new Error("That doesn't look like a web address");
   const localTest = process.env.NODE_ENV === "development" && parsed.hostname === "localhost";
   if (!/\./.test(parsed.hostname) && !localTest) throw new Error("That doesn't look like a web address");
   return parsed.toString();
@@ -66,18 +72,22 @@ export async function scanSite(input: string): Promise<Scan> {
   const html = await get(url, 12_000, 600_000, meta);
   const frameable = !meta.headers?.get("x-frame-options") && !/frame-ancestors/i.test(meta.headers?.get("content-security-policy") ?? "");
   if (/<title>\s*(Just a moment|Attention Required|Access denied)|cf-chl-|challenge-platform|captcha-delivery/i.test(html.slice(0, 20000))) throw new BlockedError("shows a bot check");
-  const root = parse(html, { comment: false });
+  const renderJob = renderPage(url); // runs while the stylesheets below are fetched
+  const root0 = parse(html, { comment: false });
   const base = new URL(url);
   const abs = (s: string) => { try { return new URL(s, base).toString(); } catch { return ""; } };
 
   // CSS: inline <style> plus the first two stylesheets
-  let css = root.querySelectorAll("style").map((s) => s.text).join("\n");
-  const sheets = root.querySelectorAll('link[rel="stylesheet"]').map((l) => abs(l.getAttribute("href") ?? "")).filter(Boolean).slice(0, 3);
+  let css = root0.querySelectorAll("style").map((s) => s.text).join("\n");
+  const sheets = root0.querySelectorAll('link[rel="stylesheet"]').map((l) => abs(l.getAttribute("href") ?? "")).filter(Boolean).slice(0, 3);
   for (const s of sheets) { try { css += "\n" + (await get(s, 6000, 400_000)); } catch { /* a blocked sheet is fine */ } }
+  const r = await renderJob;
+  const root = r ? parse(r.html, { comment: false }) : root0; // the page as a person sees it, when Chrome could open it
+  if (r) css += "\n" + root.querySelectorAll("style").map((x) => x.text).join("\n");
   const classes = root.querySelectorAll("[class]").map((e) => e.getAttribute("class") ?? "").join(" ");
 
-  const title = root.querySelector("title")?.text.trim() ?? "";
-  const description = root.querySelector('meta[name="description"]')?.getAttribute("content") ?? root.querySelector('meta[property="og:description"]')?.getAttribute("content") ?? "";
+  const title = (root0.querySelector("title") ?? root.querySelector("title"))?.text.trim() ?? "";
+  const description = root0.querySelector('meta[name="description"]')?.getAttribute("content") ?? root0.querySelector('meta[property="og:description"]')?.getAttribute("content") ?? "";
 
   // the page's words in order
   root.querySelectorAll("script,style,noscript,svg").forEach((n) => n.remove());
@@ -103,14 +113,15 @@ export async function scanSite(input: string): Promise<Scan> {
   const gFonts = [...html.matchAll(/fonts\.googleapis\.com\/css2?\?family=([^"'&]+)/g)].map((m) => decodeURIComponent(m[1]).split(":")[0].replace(/\+/g, " "));
   const fontCount = new Map<string, number>();
   for (const f of [...gFonts, ...fontFamilies]) if (f && !/^var\(|inherit|initial/i.test(f)) fontCount.set(f, (fontCount.get(f) ?? 0) + 1);
-  const fonts = [...fontCount.entries()].sort((a, b) => b[1] - a[1]).map(([f]) => f).slice(0, 6);
+  const computed = [r?.fonts.heading, r?.fonts.body].filter((f): f is string => !!f);
+  const fonts = [...new Set([...computed, ...[...fontCount.entries()].sort((a, b) => b[1] - a[1]).map(([f]) => f)])].slice(0, 6);
 
   const hexes = [...css.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})\b/gi)].map((m) => "#" + m[1].toLowerCase());
   const colorCount = new Map<string, number>();
   for (const h of hexes) colorCount.set(h, (colorCount.get(h) ?? 0) + 1);
   const colors = [...colorCount.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c).slice(0, 10);
 
-  const signals: Signal[] = [];
+  const signals: Signal[] = [...(r?.signals ?? [])]; // measured in Chrome first: those are proof
   const add = (s: Signal) => { if (!signals.some((x) => x.id === s.id)) signals.push(s); };
 
   // a real gradient declaration (short, with its own color stops) where at least two stops are violet to pink
@@ -138,7 +149,8 @@ export async function scanSite(input: string): Promise<Scan> {
   if (/BUTTON: (Get Started|Get started)/.test(outline) && /Learn More|Learn more/.test(outline)) add({ id: "default-buttons", label: "Default buttons", evidence: '"Get Started" next to "Learn More"', severity: "loud" });
   if (/(0[1-9]|Step [1-9])\s*[./:]/.test(visible)) add({ id: "numbered-labels", label: "Numbered section labels", evidence: (visible.match(/(0[1-9]|Step [1-9])\s*[./:][^.]{0,30}/) ?? [""])[0], severity: "quiet" });
 
-  const builtWith = /lovable\.(app|dev)|gpt-engineer|Edit with Lovable/i.test(html) ? "Lovable" : /bolt\.new|stackblitz/i.test(html) ? "Bolt" : /v0\.dev|v0\.app/i.test(html) ? "v0" : /framer\.(com|app|website)/i.test(html) ? "Framer" : /wix\.com|wixstatic/i.test(html) ? "Wix" : /squarespace/i.test(html) ? "Squarespace" : null;
+  const both = html + (r?.html ?? ""); // the badge is often added by JavaScript
+  const builtWith = /lovable\.(app|dev)|gpt-engineer|Edit with Lovable/i.test(both) ? "Lovable" : /bolt\.new|stackblitz/i.test(both) ? "Bolt" : /v0\.dev|v0\.app/i.test(both) ? "v0" : /framer\.(com|app|website)/i.test(both) ? "Framer" : /wix\.com|wixstatic/i.test(both) ? "Wix" : /squarespace/i.test(both) ? "Squarespace" : null;
 
-  return { url, title, description, outline, images, fonts, colors, builtWith, signals, thin: outline.length < 400, frameable };
+  return { url, title, description, outline, images, fonts, colors, builtWith, signals, thin: outline.length < 400, frameable, rendered: !!r, shot: r?.shot ?? null, pageShot: r?.page ?? null };
 }

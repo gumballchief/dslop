@@ -22,7 +22,7 @@ looks like the same purple gradient.
    | Site | Score | Verdict |
    | --- | --- | --- |
    | The AI-made sample (`/samples/relay.html`) | 90 | AI template |
-   | linear.app | 8 | Not slop |
+   | linear.app | 8 to 12 | Not slop |
    | stripe.com | 10 | Not slop |
    | granola.ai | 10 | Not slop |
 
@@ -39,6 +39,15 @@ looks like the same purple gradient.
 
 Sites that block automated readers (Cloudflare challenges, 403s) are respected, not worked around: DSlop says so and
 asks for a screenshot instead, which it reads just as well.
+
+## How we tested it
+
+A bench of 48 sites ([research/bench](research/bench/RESULTS.md)): well-known crafted sites, 16 real sites built with
+Lovable, our three deliberately AI-made samples, templates, and broken or blocked addresses. It runs the real app and
+checks every quote DSlop cites and every number in its facts against the rendered page. It found that DSlop was reading
+JavaScript-heavy Lovable pages half blind, so pages are now opened in a real headless Chrome on the server. Typical
+Lovable landing pages went from 45 to 62 up to 72 to 84, crafted sites stayed between 4 and 18, and 180 of 184 quotes
+were found word for word.
 
 ## How we used Seldon
 
@@ -65,6 +74,7 @@ Both workflows also passed on the two earlier builds of the day (experiments `10
 ## Stack
 
 - Next.js 16 (App Router), React 19, TypeScript, plain CSS, GSAP for the scroll story
+- Serverless headless Chrome (puppeteer-core + @sparticuz/chromium) to read pages the way a person sees them
 - Claude Opus 5.5 through the Anthropic TypeScript SDK: structured outputs (zod) for the analysis and chat edits,
   streaming with fast mode for the live build, the taste library as a cached system prompt
 - Vercel for hosting, Vercel Blob for published pages

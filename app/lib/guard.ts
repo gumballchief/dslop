@@ -3,6 +3,7 @@ const hits = new Map<string, number[]>();
 
 /** true when this IP has made fewer than `max` calls of `kind` in the last hour (per server instance) */
 export function allow(req: Request, kind: string, max: number): boolean {
+  if (process.env.NODE_ENV === "development") return true; // local runs (the bench) are not public traffic
   const ip = (req.headers.get("x-forwarded-for") ?? "local").split(",")[0].trim();
   const key = `${kind}:${ip}`;
   const now = Date.now();

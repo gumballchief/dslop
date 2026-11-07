@@ -59,8 +59,10 @@ Score rubric (count only what you can verify):
 - 20-39 mostly crafted: a clear identity with one or two generic habits.
 - 40-69 template-ish: several tells (default font, generic sections, filler copy) but some real content.
 - 70-100 AI template: purple or pink gradient hero, filler verbs, identical icon cards, eyebrow labels, default buttons, no real product.
+The common AI-builder look (Lovable, Bolt, v0 and their clones): a dark navy or near-black ground with violet or blue glow, or a white page with violet accents; gradient text inside the headline; a small pill badge above the headline; a centered hero with two buttons; rows of rounded cards with small icons; Inter or another default sans everywhere. A page with three or more of these is an AI template (70 or more) even when its copy is decent and it has a real product. An app screen (a tool, a dashboard, a game) is judged on its own design, not as a landing page.
 Only list a tell if you can quote it from the words, see it in the screenshot, or it is in the code signals AND fits the page. Scanner flags are hints, not proof; drop any you cannot confirm. A screenshot's capture glitches (an image that has not loaded, a cookie banner, a cut-off edge) are not tells. Never invent tells to fill the list; an empty list is a fine answer for a good site. Always list real strengths for sites under 40.
-Facts: only what is actually on the site or in the person's words.`;
+Facts: only what is actually on the site or in the person's words.
+Quotes: when you quote the site, copy its words exactly, inside double quotes, with its own punctuation (a dash inside a quote is fine: the no-dash rule is for your own words). Do not shorten a quote with ellipses; quote a shorter exact piece instead.`;
 
 export type Shot = { data: string; mediaType: "image/jpeg" | "image/png" | "image/webp" };
 
@@ -68,7 +70,7 @@ export async function analyze(input: { scan?: Scan; brief?: string; shot?: Shot 
   const body = input.fromShot
     ? `Unslop this site from the attached screenshot, which the person uploaded${input.fromShot.url ? ` (it is ${input.fromShot.url})` : ""}. Read every word you can see, keep every real fact, and judge only what is visible.`
     : input.scan
-    ? `Unslop this existing site.\n\nURL: ${input.scan.url}\nBuilt with: ${input.scan.builtWith ?? "unknown"}\nTitle: ${input.scan.title}\nDescription: ${input.scan.description}\nFonts in use: ${input.scan.fonts.join(", ") || "none detected"}\nColors in use: ${input.scan.colors.join(", ") || "none detected"}\nImages on the site: ${input.scan.images.length}\n${input.scan.thin ? "Note: the HTML carried very little text (the page draws itself with JavaScript), so judge from what is here and the screenshot if there is one; do not call the site empty.\n" : ""}${input.shot ? "A screenshot of the top of the page is attached: trust what you see in it over the code signals.\n" : ""}\nTells the scanner flagged from the code (keep the ones that hold up, drop any that are wrong for this site, and add what it cannot see):\n${input.scan.signals.map((s) => `- ${s.label}: ${s.evidence}`).join("\n") || "- none"}\n\nThe page's words, in order:\n${input.scan.outline}`
+    ? `Unslop this existing site.\n\nURL: ${input.scan.url}\nBuilt with: ${input.scan.builtWith ?? "unknown"}\nTitle: ${input.scan.title}\nDescription: ${input.scan.description}\nFonts in use: ${input.scan.fonts.join(", ") || "none detected"}\nColors in use: ${input.scan.colors.join(", ") || "none detected"}\nImages on the site: ${input.scan.images.length}\n${input.scan.rendered ? "The page was opened in a real browser: the words below are what a person sees after JavaScript runs, and the signals with quoted text or computed styles were measured on the live page, so they are proof.\n" : ""}${input.scan.thin && !input.scan.rendered ? "Note: the HTML carried very little text (the page draws itself with JavaScript), so judge from what is here and the screenshot if there is one; do not call the site empty.\n" : ""}${input.shot ? "A screenshot of the top of the page is attached: trust what you see in it over the code signals.\n" : ""}\nTells the scanner flagged from the code (keep the ones that hold up, drop any that are wrong for this site, and add what it cannot see):\n${input.scan.signals.map((s) => `- ${s.label}: ${s.evidence}`).join("\n") || "- none"}\n\nThe page's words, in order:\n${input.scan.outline}`
     : `There is no site yet. The person described what they want:\n\n"${input.brief}"\n\nBuild the content from this description only. Facts: only what they said. Tells: list the slop an AI builder would normally produce for this brief (so they can see what we will avoid), as severity "quiet". Score: 0.`;
   const res = await client().messages.parse({
     model: MODEL,
@@ -79,7 +81,18 @@ export async function analyze(input: { scan?: Scan; brief?: string; shot?: Shot 
   });
   if (res.stop_reason === "refusal") throw new Error("Claude declined to read this site");
   if (!res.parsed_output) throw new Error("The analysis came back incomplete, try again");
-  return res.parsed_output;
+  return undashAll(res.parsed_output);
+}
+
+// DSlop's own words never use em or en dashes. Text inside quotes is the site's own and stays exact (it is the proof).
+function undash(s: string): string {
+  return s.split(/("[^"]*"|\u201c[^\u201d]*\u201d)/).map((part, i) => (i % 2 ? part : part.replace(/(\d)\s*[\u2013\u2014]\s*(\d)/g, "$1 to $2").replace(/\s*[\u2013\u2014]\s*/g, ", "))).join("");
+}
+function undashAll<T>(v: T): T {
+  if (typeof v === "string") return undash(v) as T;
+  if (Array.isArray(v)) return v.map(undashAll) as T;
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, undashAll(x)])) as T;
+  return v;
 }
 
 /* ───────── 2. the build: one complete HTML file, streamed ───────── */

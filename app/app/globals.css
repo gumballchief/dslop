@@ -293,3 +293,12 @@ a { color: inherit; }
 .askchips button:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px var(--cobalt); color: var(--cobalt); }
 .askchips button:disabled { opacity: 0.5; }
 @media (max-width: 900px) { .shapebar { flex-wrap: wrap; } .shapeview { min-height: 70vh; } }
+
+/* the story's direction cards are pressable: your pick drives the rest of the story */
+.dir { position: relative; text-align: left; cursor: pointer; transition: box-shadow 0.2s; }
+.dir:hover { box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(255, 255, 255, 0.9); }
+.dir:focus-visible { outline: 0; box-shadow: 0 0 0 4px var(--cobalt); }
+.dir.on { box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6), 0 0 0 4px var(--tomato); }
+.yourpick { position: absolute; top: -13px; right: 14px; padding: 5px 10px; border-radius: 999px; background: var(--tomato); color: #fff; font-size: 12px; font-weight: 600; }
+.shipped, .bubbles { pointer-events: none; }
+.shipped > *, .bubbles > * { pointer-events: auto; }

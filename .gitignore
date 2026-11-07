@@ -13,3 +13,13 @@
 /app/node_modules/
 /app/.env*
 /app/*.tsbuildinfo
+
+# the bench (code, site list, results; no screenshots of other people's sites)
+!/research
+/research/*
+!/research/chrome.mjs
+!/research/bench
+/research/bench/*
+!/research/bench/bench.mjs
+!/research/bench/sites.json
+!/research/bench/RESULTS.md

@@ -33,6 +33,11 @@ async function readNdjson(res: Response, on: (ev: { t: string; d?: string }) => 
     }
   }
 }
+// Pages shown inside DSlop are embedded documents, so their "#" and "/" links would resolve against DSlop's own address
+// and load DSlop inside the frame. Previews get a small click handler: "#x" scrolls to that section, outside links open in
+// a new tab, everything else stays put. Only the preview gets it; published and downloaded pages are untouched.
+const LINK_GUARD = `<script>(function(){document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href")||"";e.preventDefault();if(h==="#"){window.scrollTo({top:0,behavior:"smooth"});return;}if(h.charAt(0)==="#"){var id=decodeURIComponent(h.slice(1));var t=document.getElementById(id)||document.querySelector('[name="'+id.replace(/"/g,"")+'"]');if(t)t.scrollIntoView({behavior:"smooth",block:"start"});return;}if(/^(https?:|mailto:|tel:)/i.test(h))window.open(h,"_blank","noopener");},true);document.addEventListener("submit",function(e){e.preventDefault();},true);})();</script>`;
+const previewDoc = (html: string) => html + LINK_GUARD;
 const cleanHtml = (s: string) => s.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
 const SHAPE_CHIPS = ["Make it darker", "Try a different font pairing", "Bigger, bolder headline", "Swap the main color", "Add a pricing section"];
 
@@ -249,7 +254,7 @@ export default function Unslop() {
 
   const hasBefore = Boolean(scan || beforeImg);
   const grade = analysis ? gradeOf(analysis.score) : null;
-  const beforeView = beforeImg ? <img src={beforeImg} alt="Your screenshot of the site" /> : scan ? <Before url={scan.url} alt={`The current ${analysis?.site.name ?? ""} site`} fallback={serverShot} frameable={scan.frameable !== false} /> : null;
+  const beforeView = beforeImg ? <img src={beforeImg} alt="Your screenshot of the site" /> : serverShot ? <img src={serverShot} alt={`The current ${analysis?.site.name ?? ""} site`} /> : scan ? <Before url={scan.url} alt={`The current ${analysis?.site.name ?? ""} site`} fallback={serverShot} frameable={scan.frameable !== false} /> : null;
   const shaping = stage === "pick" && focus !== null && mocks[focus] ? mocks[focus] : null;
   const chatMsgs = shaping ? shaping.chat : msgs;
 
@@ -387,7 +392,7 @@ export default function Unslop() {
           {(stage === "building" || stage === "ready") && (
             <div className="preview">
               {hasBefore && <div className="toggle"><button className={view === "before" ? "on" : ""} onClick={() => setView("before")}>Before</button><button className={view === "after" ? "on" : ""} onClick={() => setView("after")}>After</button></div>}
-              {view === "after" ? (shown ? <iframe title="The unslopped site" srcDoc={shown} sandbox="allow-scripts allow-same-origin" /> : <div className="blank"><p>The world goes in first, then the words.</p></div>) : <div className="before">{beforeView}</div>}
+              {view === "after" ? (shown ? <iframe title="The unslopped site" srcDoc={previewDoc(shown)} sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" /> : <div className="blank"><p>The world goes in first, then the words.</p></div>) : <div className="before">{beforeView}</div>}
             </div>
           )}
         </section>
@@ -447,7 +452,7 @@ function MockFrame({ html, title, tall }: { html: string; title: string; tall?: 
   return (
     <div ref={ref} className={`mockframe${tall ? " tall" : ""}`}>
       {s > 0 && slots.map((doc, i) => doc && (
-        <iframe key={i} title={i === vis ? title : `${title} (loading)`} srcDoc={doc} sandbox="" tabIndex={tall && i === vis ? 0 : -1} aria-hidden={i !== vis}
+        <iframe key={i} title={i === vis ? title : `${title} (loading)`} srcDoc={previewDoc(doc)} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" tabIndex={tall && i === vis ? 0 : -1} aria-hidden={i !== vis}
           onLoad={() => { if (i !== vis && doc === html) setVis(i); }}
           style={{ width: 1440, height: tall ? Math.max(900, box.h / s) : 900, transform: `scale(${s})`, opacity: i === vis ? 1 : 0, zIndex: i === vis ? 1 : 0 }} />
       ))}
