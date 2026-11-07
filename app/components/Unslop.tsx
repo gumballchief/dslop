@@ -348,7 +348,7 @@ export default function Unslop() {
           {stage === "pick" && analysis && view === "after" && focus === null && (
             <div className="directions">
               <h2>Three real directions</h2>
-              <p className="dlede">Each one is the actual first screen, drawn for {analysis.site.name}. Open one to look closer and change anything, then build it.</p>
+              <p className="dlede">Each one is the actual first screen, drawn for {analysis.site.name.replace(/.$/, "")}. Open one to look closer and change anything, then build it.</p>
               <div className="mocks">
                 {analysis.directions.map((d, i) => <MockCard key={i} d={d} m={mocks[i]} onOpen={() => setFocus(i)} onRetry={() => drawOne(analysis, scan?.images ?? [], i)} />)}
               </div>
