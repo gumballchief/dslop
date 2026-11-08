@@ -50,8 +50,8 @@
     "@media (max-width:820px){[data-fx~='sticky-story']{grid-template-columns:1fr}[data-fx~='sticky-story'] .fx-media{position:relative;top:0;height:56vh}[data-fx~='sticky-story'] [data-step]{min-height:auto;padding:28px 0;opacity:1}}",
     "[data-fx~='device']{transform-origin:50% 100%;will-change:transform}",
     ".fx-progress{position:fixed;left:0;top:0;height:3px;width:100%;transform-origin:0 50%;transform:scaleX(0);z-index:9999;pointer-events:none}",
-    ".fx-cursor{position:fixed;left:0;top:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;pointer-events:none;z-index:10000;transition:width .25s,height .25s,margin .25s,opacity .25s;mix-blend-mode:difference;background:#fff}",
-    ".fx-cursor.fx-big{width:46px;height:46px;margin:-23px 0 0 -23px}",
+    ".fx-cursor{position:fixed;left:0;top:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;pointer-events:none;z-index:10000;transition:scale .25s cubic-bezier(.2,.7,.2,1),opacity .25s;mix-blend-mode:difference;background:#fff}",
+    ".fx-cursor.fx-big{scale:3.8}",
     ".fx-still .fx-word>span{transform:none}"
   ].join("\n");
   var st = document.createElement("style");
