@@ -18,6 +18,9 @@
 !/research
 /research/*
 !/research/chrome.mjs
+!/research/demos3.mjs
+!/research/flowtest.mjs
+!/research/flowtest2.mjs
 !/research/bench
 /research/bench/*
 !/research/bench/bench.mjs

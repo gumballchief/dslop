@@ -1,0 +1,43 @@
+// The pick step on a real site, then a build from the first "our take on" preview, watching the DSlopping screen.
+//   node flowtest2.mjs [app=http://localhost:3090] [site=makeurquiz.lovable.app]
+import puppeteer from "puppeteer-core";
+import sharp from "sharp";
+import { CHROME } from "./chrome.mjs";
+const arg = (k, d) => (process.argv.find((a) => a.startsWith(k + "=")) ?? "").slice(k.length + 1) || d;
+const APP = arg("app", "http://localhost:3090"), SITE = arg("site", "makeurquiz.lovable.app");
+const b = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--hide-scrollbars"] });
+const p = await b.newPage();
+await p.setViewport({ width: 1440, height: 900 });
+const t0 = Date.now();
+const at = () => `${Math.round((Date.now() - t0) / 1000)}s`;
+const snap = async (name) => { await sharp(await p.screenshot({ type: "png" })).resize(1200).jpeg({ quality: 80 }).toFile(`flow2-${name}.jpg`); console.log(at(), "snap", name); };
+const clickText = async (text, nth = 0) => { const ok = await p.evaluate((t, n) => { const el = [...document.querySelectorAll("button, a")].filter((e) => e.textContent.trim() === t)[n]; if (el) el.click(); return !!el; }, text, nth); if (!ok) throw new Error("no button: " + text); };
+const waitFor = async (fn, ms, label) => { const end = Date.now() + ms; while (Date.now() < end) { if (await p.evaluate(fn)) return; await new Promise((r) => setTimeout(r, 1000)); } throw new Error("timed out waiting for " + label); };
+await p.goto(APP, { waitUntil: "networkidle2" });
+await p.type('input[aria-label="Your site\'s link"]', SITE);
+await clickText("DSlop it");
+await waitFor(() => [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "See six directions"), 150000, "the read");
+console.log(at(), "read done");
+await clickText("See six directions");
+await waitFor(() => document.querySelectorAll(".mock .mockinfo .mocktag").length === 6, 150000, "six directions");
+console.log(at(), "leaders:", await p.evaluate(() => [...document.querySelectorAll(".leader")].map((l) => `${l.querySelector("b").textContent}${l.querySelector("img") ? " (seen)" : " (not opened)"}`).join(", ")));
+console.log("   looks:", await p.evaluate(() => [...document.querySelectorAll(".mock .mockinfo")].map((m) => `${m.querySelector(".mocktag").textContent} | ${m.querySelector("b").textContent} | ${m.querySelectorAll("span")[1]?.textContent ?? ""}`).join("\n          ")));
+await waitFor(() => document.querySelectorAll(".mock .drawing").length === 0 && document.querySelectorAll(".mock iframe").length >= 6, 180000, "the six previews");
+await new Promise((r) => setTimeout(r, 2500));
+console.log(at(), "previews drawn");
+await snap("1-six");
+await p.evaluate(() => document.querySelector(".directions").scrollTo(0, 99999));
+await new Promise((r) => setTimeout(r, 800));
+await snap("2-six-bottom");
+await clickText("Open and shape it", 0);
+await new Promise((r) => setTimeout(r, 1500));
+await clickText("Build the full site");
+for (const s of [3, 12, 24]) { await new Promise((r) => setTimeout(r, (s - (s === 3 ? 0 : s === 12 ? 3 : 12)) * 1000)); await snap(`3-building-${s}s`); console.log("   phase:", await p.evaluate(() => document.querySelector(".dsphase")?.textContent)); }
+await waitFor(() => [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "Publish"), 300000, "the build");
+await new Promise((r) => setTimeout(r, 2500));
+console.log(at(), "built");
+await snap("4-built");
+console.log("   effects in the built page:", await p.evaluate(() => { const f = document.querySelector(".preview iframe"); const html = f ? f.srcdoc : ""; const names = [...html.matchAll(/data-fx="([^"]+)"/g)].flatMap((m) => m[1].split(/s+/)); const reveals = (html.match(/data-reveal/g) || []).length; return `${[...new Set(names)].join(", ")} | reveals: ${reveals} | engine: ${/fx.js/.test(html)}`; }));
+console.log("   chat:", await p.evaluate(() => [...document.querySelectorAll(".chat .msgs p")].map((m) => m.textContent).join(" | ")));
+const f = await p.$(".preview iframe"); const fr = await f.contentFrame(); await fr.evaluate(() => scrollTo(0, 900)); await new Promise((r) => setTimeout(r, 1500)); await snap("5-built-scrolled");
+await b.close();

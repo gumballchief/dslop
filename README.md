@@ -4,7 +4,7 @@
 the evidence from your own page, gives you three real art directions, rebuilds it live, lets you change anything in
 chat, and publishes it to a live link. Then it tells you to cancel Lovable.
 
-Live: **https://dslop.vercel.app**
+Live: **https://dslop.vercel.app** · Demo video (32 s): **https://dslop.vercel.app/demo.mp4**
 
 Built in one day at **Ship Happens** (Seldon, San Francisco, November 7, 2026). The brief: bring a subscription you'd
 like to stop paying for and build its replacement. Ours is **Lovable Pro, $25 a month**, because every site it makes
@@ -48,6 +48,14 @@ looks like the same purple gradient.
 Sites that block automated readers (Cloudflare challenges, 403s) are respected, not worked around: DSlop says so and
 asks for a screenshot instead, which it reads just as well.
 
+## The demo
+
+https://dslop.vercel.app/demo.mp4 is the whole flow on a made-up plant shop (Bloomly), every frame real: the tells
+circled, the market study (Bloomscape, Patch Plants and Léon & George opened live), six real first screens, the chat,
+the DSlopping build screen, the page rebuilt with the motion engine, a purple-gradient request refused, the live publish
+(https://dslop.vercel.app/s/bloomly-prytw), an honest "not slop" on linear.app, and Seldon's own recording of the final
+run. The script that ran it through the app is [research/demos3.mjs](research/demos3.mjs).
+
 ## How we tested it
 
 A bench of 48 sites ([research/bench](research/bench/RESULTS.md)): well-known crafted sites, 16 real sites built with
@@ -69,16 +77,16 @@ two core workflows are written as code in [app/seldon.yml](app/seldon.yml):
 
 [seldon.mjs](seldon.mjs) runs them through Seldon's REST API (validate, run, wait, report, save).
 
-Final run, November 7, 2026, against the final build at https://dslop.vercel.app, with the market study, six real
-previews, the talk chat, the shape chat and the real-Chrome page reading (experiment
-`a9c13a13-f1a6-466d-a21e-306444d87fe2`): **2 of 2 passed.**
+Final run, November 7, 2026, against the final build at https://dslop.vercel.app (the market study, six real
+previews, the talk chat, the shape chat, the DSlopping build screen, the polish pass and the motion engine), experiment
+`e4fca32f-777a-4028-9d12-32ac9f1576bf`: **2 of 2 passed.**
 
 | Workflow | Verdict | What Seldon's agent saw |
 | --- | --- | --- |
 | A pasted site gets its AI tells named | PASS | The site name Relay, a "92% slop" badge, and a list of tells led by "Purple to pink gradient", citing the real CSS values |
 | A redesign is built live and published, then you can cancel Lovable | PASS | "It's live" with a live link on dslop.vercel.app/s/..., right above the "Now cancel Lovable." box and its billing button |
 
-Both workflows also passed on the four earlier builds of the day (experiments `102f055a-...`, `00395cca-...`, `c540a002-...` and `ae7cab13-...`).
+Both workflows also passed on every earlier build of the day (experiments `102f055a-...`, `00395cca-...`, `c540a002-...`, `ae7cab13-...` and `a9c13a13-...`).
 
 ## Stack
 
