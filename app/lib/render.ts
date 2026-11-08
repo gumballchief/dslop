@@ -145,7 +145,7 @@ export async function renderPage(url: string, budgetMs = 30_000): Promise<Render
 
 /** The first screen of several sites at once (one Chrome, a tab each), as small JPEGs (base64), for studying a market.
  *  Best effort: a site that won't open, errors, or shows a bot check comes back null. */
-export async function shootMany(urls: string[], budgetMs = 22_000): Promise<(string | null)[]> {
+export async function shootMany(urls: string[], budgetMs = 32_000): Promise<(string | null)[]> {
   const out: (string | null)[] = urls.map(() => null);
   let browser: Browser | null = null;
   let done = false;
@@ -155,7 +155,7 @@ export async function shootMany(urls: string[], budgetMs = 22_000): Promise<(str
   const work = (async () => {
     browser = await launch();
     if (done) { await browser.close().catch(() => {}); return; }
-    await Promise.all(urls.map(async (url, i) => {
+    const shoot = async (url: string, i: number) => {
       try {
         const p = await browser!.newPage();
         await p.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36");
@@ -169,7 +169,11 @@ export async function shootMany(urls: string[], budgetMs = 22_000): Promise<(str
       } catch (e) {
         console.error(`[market] ${url} failed: ${e instanceof Error ? e.message : e}`);
       }
-    }));
+    };
+    await Promise.all(urls.map(shoot));
+    // one more try for any that failed, if there is time left (a busy moment, a slow first paint)
+    const retry = urls.map((u, i) => [u, i] as const).filter(([, i]) => !out[i]);
+    if (retry.length && Date.now() - t0 < budgetMs - 14_000) await Promise.all(retry.map(([u, i]) => shoot(u, i)));
   })().catch((e) => console.error(`[market] chrome failed: ${e instanceof Error ? e.message : e}`));
   await Promise.race([work, timer]);
   done = true;

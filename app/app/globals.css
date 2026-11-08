@@ -371,3 +371,4 @@ a { color: inherit; }
   .dsnew { clip-path: inset(0 0 50% 0); }
   .dschip, .dsscan { display: none; }
 }
+.leadermiss { width: 168px; height: 105px; border-radius: 10px; display: grid; place-items: center; padding: 10px; text-align: center; font-size: 12px; line-height: 1.35; color: var(--grey); background: #f3efe7; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06); }

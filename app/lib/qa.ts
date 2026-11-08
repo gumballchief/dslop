@@ -64,22 +64,24 @@ const CHECK = `(async () => {
   return issues;
 })()`;
 
-async function check(browser: Browser, html: string, width: number, height: number): Promise<Omit<Issue, "size">[]> {
+async function check(browser: Browser, html: string, width: number, height: number, origin: string): Promise<Omit<Issue, "size">[]> {
   const p = await browser.newPage();
   try {
     await p.setViewport({ width, height });
-    await p.setContent(html, { waitUntil: "load", timeout: 15_000 }).catch(() => {});
+    // relative paths (the /fx.js motion engine) resolve against the app, as they do in the preview and the live page
+    const based = html.replace(/<head[^>]*>/i, (m) => `${m}<base href="${origin}/">`);
+    await p.setContent(based, { waitUntil: "load", timeout: 15_000 }).catch(() => {});
     await new Promise((r) => setTimeout(r, 1200));
     return (await p.evaluate(CHECK)) as Omit<Issue, "size">[];
   } finally { await p.close().catch(() => {}); }
 }
 
 /** Best effort: an empty list when Chrome can't run (the page then ships as written). */
-export async function checkLayout(html: string): Promise<Issue[]> {
+export async function checkLayout(html: string, origin: string): Promise<Issue[]> {
   let browser: Browser | null = null;
   try {
     browser = await launch();
-    const [desk, phone] = await Promise.all([check(browser, html, 1440, 900), check(browser, html, 390, 844)]);
+    const [desk, phone] = await Promise.all([check(browser, html, 1440, 900, origin), check(browser, html, 390, 844, origin)]);
     return [...desk.map((i) => ({ ...i, size: "desktop" as const })), ...phone.map((i) => ({ ...i, size: "phone" as const }))].slice(0, 30);
   } catch (e) {
     console.error(`[qa] failed: ${e instanceof Error ? e.message : e}`);

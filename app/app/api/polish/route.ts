@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   const { html } = (await req.json().catch(() => ({}))) as { html?: string };
   if (!html || html.length < 200 || html.length > 400_000) return oops("Nothing to polish");
   if (!allow(req, "polish", 60)) return oops("That's a lot of polishing in an hour. Try again soon.", 429);
-  const issues = await checkLayout(html);
+  const issues = await checkLayout(html, new URL(req.url).origin);
   if (!issues.length) return Response.json({ html, issues: [], fixed: 0, reply: "" });
   try {
     const out = await polishPage(html, issues);

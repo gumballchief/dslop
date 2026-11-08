@@ -300,8 +300,14 @@ export default function Unslop() {
     } finally { setBusy(false); }
   }
 
-  function download() {
-    const blob = new Blob([html], { type: "text/html" });
+  // the downloaded file works on its own: the motion engine is bundled in instead of loaded from DSlop
+  async function download() {
+    let file = html;
+    try {
+      const fx = await fetch("/fx.js").then((r) => (r.ok ? r.text() : ""));
+      if (fx) file = file.split('<script src="/fx.js" defer></script>').join(`<script>${fx}</script>`).split('<script src="/fx.js"></script>').join(`<script>${fx}</script>`);
+    } catch { /* falls back to the linked engine */ }
+    const blob = new Blob([file], { type: "text/html" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${(analysis?.site.name ?? "site").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.html`;
@@ -434,7 +440,7 @@ export default function Unslop() {
                 <div className="leaders">
                   {(leaders.length ? leaders : analysis.market.leaders.map((l) => ({ ...l, thumb: null }))).map((l) => (
                     <a key={l.url} className="leader" href={l.url} target="_blank" rel="noreferrer" title={l.why}>
-                      {l.thumb ? <img src={l.thumb} alt={`${l.name} homepage`} /> : <span className="leaderwait" />}
+                      {l.thumb ? <img src={l.thumb} alt={`${l.name} homepage`} /> : dirState === "studying" ? <span className="leaderwait" /> : <span className="leadermiss">Couldn't open it live, drawn from what DSlop knows of it</span>}
                       <b>{l.name}</b>
                     </a>
                   ))}

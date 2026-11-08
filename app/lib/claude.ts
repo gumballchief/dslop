@@ -41,7 +41,7 @@ const Market = z.object({
     name: z.string(),
     url: z.string().describe("The real homepage, a full https URL"),
     why: z.string().describe("What its design does well, one short sentence"),
-  })).min(2).max(4).describe("The best-designed real, well-known sites in this market (not this site itself), best first"),
+  })).min(3).max(6).describe("Four to six of the best-designed real, well-known sites in this market (not this site itself), best first"),
 });
 
 export const AnalysisCore = z.object({
@@ -108,19 +108,20 @@ const DirectionSet = z.object({
 });
 
 const DIRECTION_RULES = `You are DSlop's art director, choosing six directions for this site's new landing page.
-Directions 1 to 3 have group "market": each is DSlop's own version of ONE leader's site (a different leader for each when there are three; set "ref" to its name). The way a designer builds a new wallet after studying the best wallets: keep that leader's general site look at the same level of quality (its page structure, the kind of hero, its component vocabulary such as answer tiles, a mascot scene, a leaderboard or a real app screen, its density and polish), so anyone would think "oh, this is another quiz site like Duolingo". Then make it its own: move the placements around (flip the hero, reorder and re-lay the parts), swap each component for a close cousin (cards become tiles, a mascot becomes a drawn object, a carousel becomes a stack), and give it a different palette (not the leader's brand colors) and different type. Say exactly what stays in "keep" and what changes in "change", and describe the hero and world concretely. Never use the leader's logo, name, mascot, illustrations or copy. If a leader is itself slop, pick another leader's look or take only its structure.
+Directions 1 to 3 have group "market": each is DSlop's take on ONE leader's homepage (a different leader each; set "ref" to its name exactly), and it must be recognizable as that leader's kind of page at a glance. KEEP, nearly as is: its composition (the layout grid, where the headline, buttons and main visual sit and how big each is), its type style (serif or grotesk, weight, size, tracking, case), its kind of main visual (one 3D object on white, a painted sky above a product window, a light streak on black, colorful game tiles), its nav style, its spacing, density and motion feel, and its lightness (a near-black leader stays dark, a white one stays light). CHANGE: the hue family of the palette (never the leader's brand colors), the words (this site's), and what the main visual shows (this site's product or world); swap at most one component for a close cousin. Write "keep" and "change" concretely, naming positions and sizes. Never the leader's logo, name, mascot, illustrations, photos or copy. If a leader is itself slop, take only its structure.
 Directions 4 to 6 have group "library": bold alternatives from the taste library directions (section 3, keys A to L) and the 21st.dev genres (section 7d) that still suit this site. In "nod" describe the look in plain words and name where it comes from, never a bare library letter.
 All six must look nothing alike (section 7). Fill every palette and font for real; fonts must be real Google Fonts families. Headlines and sublines use the site's real facts. Never use em dashes or en dashes.`;
 
-export async function directionsFor(analysis: AnalysisCore, leaders: { name: string; url: string; shot: string | null }[]): Promise<{ conventions: string; directions: Direction[] }> {
+// pool = the library looks to choose the three alternatives from this run (a fresh random mix each time, for variety)
+export async function directionsFor(analysis: AnalysisCore, leaders: { name: string; url: string; shot: string | null }[], pool: string[] = []): Promise<{ conventions: string; directions: Direction[] }> {
   const seen = leaders.filter((l) => l.shot);
   const content: Anthropic.ContentBlockParam[] = [];
   for (const l of seen) {
     content.push({ type: "text", text: `${l.name} (${l.url}), the top of its homepage right now:` });
     content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: l.shot! } });
   }
-  const unseen = analysis.market.leaders.filter((l) => !seen.some((x) => x.url === l.url)).map((l) => l.name);
-  content.push({ type: "text", text: `The site:\n${JSON.stringify({ site: analysis.site, market: analysis.market.name, verdict: analysis.verdict, tells: analysis.tells.map((t) => t.label) }, null, 2)}\n\n${seen.length ? `Above are the homepages of the best-designed sites in its market (${seen.map((l) => l.name).join(", ")}).` : ""}${unseen.length ? ` These leaders could not be opened right now, use what you know of their look: ${unseen.join(", ")}.` : ""}\n\nPick the six directions.` });
+  const unseen = leaders.filter((l) => !l.shot).map((l) => l.name);
+  content.push({ type: "text", text: `The site:\n${JSON.stringify({ site: analysis.site, market: analysis.market.name, verdict: analysis.verdict, tells: analysis.tells.map((t) => t.label) }, null, 2)}\n\n${seen.length ? `Above are the homepages of the best-designed sites in its market (${seen.map((l) => l.name).join(", ")}).` : ""}${unseen.length ? ` These leaders could not be opened right now, use what you know of their look: ${unseen.join(", ")}.` : ""}${pool.length ? `\n\nThis time, take the three library looks from these (pick the ones that suit the site best): ${pool.join("; ")}.` : ""}\n\nPick the six directions: the three market ones are takes on ${leaders.map((l) => l.name).join(", ")}.` });
   const res = await client().messages.parse({
     model: MODEL,
     max_tokens: 16000,
@@ -166,32 +167,59 @@ function undashAll<T>(v: T): T {
 
 /* ───────── 2. the build: one complete HTML file, streamed ───────── */
 
+const FX_DOCS = `DSlop's motion engine (the 21st.dev-grade effects, already built and tested). Load it once, last thing in the body: <script src="/fx.js" defer></script>. Turn effects on with attributes; several on one element are space separated (data-fx="dots grain"). Content stays visible without it and nothing moves for reduced motion, so never hide content yourself.
+Backgrounds (put on a section; color with data-fx-color, in the palette):
+- data-fx="spotlight": a soft light that follows the cursor across the section and drifts on its own when idle (data-fx-size px, data-fx-strength 0 to 1). This is a light, not a neon glow.
+- data-fx="dots": a dot grid that ripples and bends toward the cursor (data-fx-gap px).
+- data-fx="lines": silky wave lines that part around the cursor (data-fx-count).
+- data-fx="sonar": rings that ping and expand, and on click.
+- data-fx="grain": a film-grain texture over the section.
+Text:
+- data-fx="split" on a headline: words rise in one by one (on load; add data-fx-on="view" for headings further down).
+- data-fx="scramble" on a short label or code: letters scramble, then settle.
+- data-fx="count" data-to="1250" (data-prefix, data-suffix, data-decimals): counts up when seen. ONLY a number that is in the facts.
+- data-reveal="up|left|right|blur|clip|scale" on any element: it enters as it scrolls into view. data-reveal-stagger="up" on a parent staggers its children.
+Pointer:
+- data-fx="magnetic" on the primary button: it pulls toward the cursor.
+- data-fx="tilt" on a card or product shot: 3D tilt with a light sheen (data-fx-max degrees).
+- data-fx="cardlight" on a grid of cards: a light follows the cursor across the cards.
+- data-fx="cursor" on body: a small custom cursor that grows over links.
+Scroll set pieces:
+- data-fx="sticky-story": a two-column block; left = text steps <div data-step="a">..., right = <div class="fx-media"> holding <div data-media="a">... panels that swap as each step reaches the middle.
+- data-fx="horizontal": a section holding <div class="fx-sticky"><div class="fx-track">cards</div></div>; scrolling down slides the track sideways.
+- data-fx="device" on a product frame: it tilts up from flat into place as it scrolls in.
+- data-fx="velocity" (data-fx-dir="left|right") on a huge one-line type band: it slides sideways with the scroll.
+- data-fx="parallax" data-speed="0.3" on a layer: depth as you scroll.
+- data-fx="draw" on an inline SVG: its strokes draw themselves when seen.
+- data-fx="marquee" (data-fx-speed seconds, data-fx-dir) on a row of items: an endless band that pauses on hover.
+- data-fx="progress" on body (data-fx-color): a thin scroll progress line at the top.`;
+
 const BUILD_RULES = `You are Unslop's designer and front-end engineer. Build the complete new landing page for this site in the chosen direction.
 
 Output: ONE complete HTML file and nothing else. Start with <!doctype html>, end with </html>. No markdown fences, no commentary.
 
 Hard rules:
-- Inline all CSS and JS. Fonts from Google Fonts via <link>. The only allowed scripts: https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js and https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js (optional).
+- Inline all CSS. Fonts from Google Fonts via <link>. Scripts: /fx.js (the motion engine below, required), plus optionally https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js and ScrollTrigger.min.js and one small inline <script> for a custom canvas or interaction.
 - Use the site's real images (URLs given) where they fit, with object-fit and alt text. Never link stock photos or placeholder services. When there is no image for something, build it with CSS, SVG or canvas (a drawn world, shapes, a live product mock that is a real working component, not gray bars).
 - Keep every real fact. Never invent customers, testimonials, numbers, awards or logos. No fake reviews. No made-up statistics, not even as an animated counter: a counter may only count to a number that appears in the facts.
 - Follow the chosen direction exactly: its world, palette, fonts, signature and motion. The page must pass the checklist in section 8 of the taste library.
 - Banned on the page: em dashes and en dashes, eyebrow pill labels over headings, numbered section labels (01, 02, Step 1), purple or pink gradients, glow and neon, glassmorphism, three identical icon cards, the words elevate, supercharge, unleash, seamless, transform, empower, next-gen, cutting-edge, revolutionize, effortless.
 - Structure: a hero that shows the real thing or the world, then 5 to 8 sections with different layouts, a strong closing call to action, and a footer. Roughly 8 to 10 screens tall on desktop.
-- Motion: one element is always alive (the world or the signature object); sections reveal as they enter (IntersectionObserver or GSAP ScrollTrigger); nothing zooms into photos. Respect prefers-reduced-motion.
+- Motion is not optional, and it must feel expensive, like the best 21st.dev pages: use the motion engine generously. At least: a background effect on the hero (spotlight, dots, lines or sonar, often with grain), split on the hero headline, magnetic on the main button, data-reveal or data-reveal-stagger on every section, tilt or cardlight on cards, and at least two scroll set pieces from sticky-story, horizontal, device, velocity, draw, parallax and marquee, chosen to fit the direction. Never zoom into photos. Everything is readable with motion off.
 - Works at 375px wide with no horizontal scroll. Buttons are real links (#sections or mailto/tel from the facts).
 - Never put a screenshot of the old site in the new page. An image with words baked into it is never cropped, rotated or shrunk until its words are cut off or unreadable.
 - Device frames (phones, laptops, browser windows): build what is on the screen in HTML and CSS, sized to fit the frame, with text you can read; never fill a device with an image of a page.
 - Nothing ever covers text: decorative objects, devices and cards sit beside the headline or behind it only where every word stays fully readable.
 - No text is ever clipped or cut off by its box. Tables and number lists: a header row, aligned columns, numbers right-aligned, no wrapping inside cells, and the table fits its box (on phones it scrolls sideways inside its own box).
-- Write the CSS in a <style> in the head first, then the body, then one <script> at the end. Keep the whole file under 1300 lines.`;
+- Write the CSS in a <style> in the head first, then the body, then the scripts at the end (fx.js last). Keep the whole file under 1300 lines.`;
 
 const MOCK_RULES = `You are DSlop's designer. Draw the FIRST SCREEN of this site's new landing page in the chosen direction, so the person can see the real look before the full page is built: the nav and the complete hero at 1440 by 900, with the top of the next section just peeking in at the bottom edge.
 
 Output: ONE complete HTML file and nothing else. Start with <!doctype html>, end with </html>. No markdown fences, no commentary. Under 200 lines.
 
 Hard rules:
-- Inline all CSS. Fonts from Google Fonts via <link>. No scripts at all; any motion is CSS keyframes only.
-- Everything is visible at load: no reveal animations that start hidden (this is shown as a preview).
+- Inline all CSS. Fonts from Google Fonts via <link>. The only script: <script src="/fx.js" defer></script> at the end of the body (the motion engine below).
+- It must already feel alive: a background effect on the hero (spotlight, dots, lines or sonar, with grain if it suits), split on the headline, magnetic on the main button, tilt on the product shot or card. No data-reveal in a preview: everything is visible within a second.
 - Use the site's real images (URLs given) where they fit, with object-fit and alt text. Never stock photos or placeholder services. When there is no image, build the world with CSS or inline SVG: drawn and specific to this site, never gray boxes.
 - Keep real facts only. Never invent numbers, customers, reviews or awards.
 - Follow the direction exactly: its world, palette, fonts, signature, headline, subline and CTA. This screen must already be unmistakably this direction and nothing like the other two.
@@ -226,7 +254,7 @@ export function buildStream(analysis: Analysis, direction: Direction, images: st
   const approved = from?.mock
     ? `\n\nThe person already approved the first screen below${asks.length ? `, after asking for these changes: ${asks.map((a) => `"${a}"`).join("; ")}` : ""}. Keep its nav, hero, palette, fonts, components and every change exactly as they are (reuse its CSS and markup), keep anything else it already contains, and build the rest of the page below it in the same direction, carrying the requested changes through the whole page.\n\nThe approved first screen:\n\n${from.mock}`
     : "";
-  return pageStream(BUILD_RULES, `Build it.\n\n${JSON.stringify(brief, null, 2)}${approved}`, fast, 64000);
+  return pageStream(BUILD_RULES + "\n\n" + FX_DOCS, `Build it.\n\n${JSON.stringify(brief, null, 2)}${approved}`, fast, 64000);
 }
 
 // The first screen only, so the three choices are real pages, not color swatches.
@@ -234,9 +262,9 @@ export function buildStream(analysis: Analysis, direction: Direction, images: st
 export function mockStream(analysis: Analysis, direction: Direction, images: string[], fast = true, ref?: { name: string; shot: string } | null) {
   const brief = { site: analysis.site, direction, images };
   const text = `Draw the first screen.\n\n${JSON.stringify(brief, null, 2)}`;
-  if (!ref) return pageStream(MOCK_RULES, text, fast, 16000);
-  return pageStream(MOCK_RULES, [
-    { type: "text", text: `The reference: the top of ${ref.name}'s homepage right now. This direction is DSlop's own version of it. Keep its general site look and its level of polish: ${direction.keep}. Make it its own: ${direction.change}. Use the direction's palette and fonts, never ${ref.name}'s logo, name, mascot, illustrations, copy or brand colors.` },
+  if (!ref) return pageStream(MOCK_RULES + "\n\n" + FX_DOCS, text, fast, 16000);
+  return pageStream(MOCK_RULES + "\n\n" + FX_DOCS, [
+    { type: "text", text: `The reference: the top of ${ref.name}'s homepage right now. Rebuild this first screen for this site so anyone recognizes it as that kind of page: the same layout grid and positions, the same sizes, the same type style and scale, the same kind of main visual, the same nav and density, at the same level of polish. Keep: ${direction.keep}. Then make it this site's: ${direction.change}. Use the direction's palette (keep the reference's lightness) and fonts, this site's words, and a main visual that shows this site's product or world. Never ${ref.name}'s logo, name, mascot, illustrations, photos, copy or brand colors.` },
     { type: "image", source: { type: "base64", media_type: "image/jpeg", data: ref.shot } },
     { type: "text", text },
   ], fast, 16000);
